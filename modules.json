@@ -1,0 +1,32 @@
+{
+    "name": "",
+    "homePage": "",
+    "repos": {
+        "nf-core/modules": {
+            "blast/blastn": {
+                "git_sha": "e745e167c1020928ef20ea1397b6b4d230681b4d"
+            },
+            "blast/makeblastdb": {
+                "git_sha": "e745e167c1020928ef20ea1397b6b4d230681b4d"
+            },
+            "diamond/blastp": {
+                "git_sha": "bd3bfe0817246082525ab93707976676b1fe208b"
+            },
+            "diamond/blastx": {
+                "git_sha": "3531824af826c16cd252bc5aa82ae169b244ebaa"
+            },
+            "diamond/makedb": {
+                "git_sha": "39530b5ca710e028fdec94a704e5eed3f78c5800"
+            },
+            "prodigal": {
+                "git_sha": "fcb1dce7b6f1563bdcdb70fdbe235cc2f9fed62e"
+            },
+            "spades": {
+                "git_sha": "682f789f93070bd047868300dd018faf3d434e7c"
+            },
+            "trimgalore": {
+                "git_sha": "85ec13ff1fc2196c5a507ea497de468101baabed"
+            }
+        }
+    }
+}
