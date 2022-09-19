@@ -1,6 +1,6 @@
-include { PRODIGAL } from "$baseDir/modules/nf-core/modules/prodigal/main"
-include { DIAMOND_MAKEDB } from "$baseDir/modules/nf-core/modules/diamond/makedb/main"
-include { DIAMOND_BLASTX } from "$baseDir/modules/nf-core/modules/diamond/blastx/main"
+include { PRODIGAL } from "$baseDir/modules/nf-core/prodigal/main"
+include { DIAMOND_MAKEDB } from "$baseDir/modules/nf-core/diamond/makedb/main"
+include { DIAMOND_BLASTX } from "$baseDir/modules/nf-core/diamond/blastx/main"
  
  process CUS_BLASTN {
     tag "$meta.id"
