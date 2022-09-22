@@ -1,48 +1,31 @@
 nextflow.enable.dsl=2
 
-include {SEQUENCE_TYPING} from "$baseDir/lib/seqtype_manager.nf"
-include {REMOTE_SEQ_FETCHER} from "$baseDir/lib/biodb_manager.nf"
-
-include { BLAST_MAKEBLASTDB } from "$baseDir/lib/utility.nf"
-include { KRAKEN2_KRAKEN2 } from "$baseDir/modules/nf-core/kraken2/kraken2/main.nf"
-
+include {ANNOTATE_ISOLATES} from "$baseDir/modules/local/annotate_isolate"
+include {CREATD_REF_DB} from "$baseDir/modules/local/db_manager"
+include {SAVE_TO_DB} from "$baseDir/modules/local/db_manager"
 
 def data_dir = "$baseDir/data"
 def input_gz = "$baseDir/gz"
 def ref_db = "$data_dir/db.sqlite3"
-
-
-process SAVE_TO_DB{
-    tag "$meta.id"
-    label "vshort"
-
-    maxForks 1
-    input:
-    tuple val(type),val(meta), path(intsv)
-    val(db_path)
-
-    script:
-    """
-    python $baseDir/bin/save_to_db.py --db $db_path --in $intsv --type $type
-    """
-}
+def contigs_dir ="$data_dir/contigs"
 
 workflow{
-    
-    // gg_ch= Channel.fromPath("$data_dir/greengenes/*.fasta").map{it -> [["id":it.simpleName],it]}
-    // gg_ch.view()
-    // BLAST_MAKEBLASTDB(gg_ch,'-dbtype nucl')   
-    // BLAST_MAKEBLASTDB.out.db.map{it -> it[1]}.flatten().collectFile(storeDir:"$data_dir/greengenes")
+
+    CREATD_REF_DB(ref_db,true)
+
+    input_ch = Channel.fromPath("$input_gz/samples.csv").splitCsv(header:true);
+    ANNOTATE_ISOLATES(input_ch,data_dir,true)
+
+    ch_into_db =ANNOTATE_ISOLATES.out.taxa_csv.map{it -> ["samples",[id:it.simpleName],it]}
+                .concat(ANNOTATE_ISOLATES.out.seqtypes)
+                .concat(ANNOTATE_ISOLATES.out.gene_annotations.map{it->['orfs',it[0],it[1]]})
+                .concat(ANNOTATE_ISOLATES.out.diamond_txt.map{it->['annotations',it[0],it[1]]})
+
+    file(contigs_dir).mkdir()
+    ANNOTATE_ISOLATES.out.contigs.map{it-> it[1]}.flatten().collectFile(storeDir:contigs_dir)
 
     
-    
-    // SEQUENCE_TYPING(input_gz,data_dir,true)
-
-    // ch_into_db =SEQUENCE_TYPING.out.seqtypes
-    //            .concat(SEQUENCE_TYPING.out.gene_annotations.map{it->['orfs',it[0],it[1]]})
-    //             .concat(SEQUENCE_TYPING.out.diamond_txt.map{it->['annotations',it[0],it[1]]})
-
-    // SAVE_TO_DB(ch_into_db,ref_db)
+    SAVE_TO_DB(ch_into_db,ref_db)
 
  
 }

@@ -2,37 +2,41 @@ import getopt, os, sys
 import pandas as pd
 import sqlite3 as lit
 
+def save_samples(db,incsv):
+ 
+    conn = lit.connect(db)
+    cur = conn.cursor()
+
+    df = pd.read_csv(incsv,header=0)
+    row = df.loc[0]
+    cur.execute(f"INSERT INTO genomes (sample,tax_lvl,taxonomy,taxid) VALUES (?,?,?,?)"
+    ,(str(row["id"]),row["level"],row["tag"],str(row["taxid"])))
+
+    conn.commit()
+    conn.close()
+
+
 def save_seqtype(db,intsv,type):
     accession = os.path.basename(intsv).split('.')[0]
     accession = accession.replace('-v-','.')
-    # check if it's been already inserted
     conn = lit.connect(db)
     cur = conn.cursor()
 
     df = pd.read_csv(intsv,header=0,index_col=0,sep='\t')
     data = df.iloc[0]
-    row = cur.execute('SELECT count(id) FROM genomes WHERE assembly_accession = ?',(accession,)).fetchone()
-    if(row[0]>0):
-        if(type=='mlst'):
-            cur.execute(f"UPDATE genomes set mlst_st=?,mlst_loci=?,"  
-                  f"mlst_alleles=?,clonal_complex=? where assembly_accession=?",(str(data.st),data.loci,data.alleles,data.clonal_complex,accession))
-        else:
-            cur.execute(f"UPDATE genomes set cgmlst_loci=?,cgmlst_coverage=?,"  
-                  f"cgmlst_alleles=? where assembly_accession=?",(data.loci,float(data.coverage),data.alleles,accession))
+    if(type=='mlst'):
+        cur.execute(f"UPDATE genomes set mlst_st=?,mlst_loci=?,"  
+            f"mlst_alleles=?,clonal_complex=? where sample=?",(str(data.st),data.loci,data.alleles,data.clonal_complex,accession))
     else:
-        if(type=='mlst'):
-            cur.execute(f"INSERT INTO genomes (mlst_st,mlst_loci,mlst_alleles,clonal_complex,assembly_accession) VALUES (?,?,?,?,?);",
-                        (str(data.st),data.loci,data.alleles,data.clonal_complex,accession))
-        else:
-            cur.execute(f"INSERT INTO genomes (cgmlst_loci,cgmlst_alleles,cgmlst_coverage,assembly_accession) VALUES (?,?,?,?)",
-            (data.loci,data.alleles,float(data.coverage),accession)) 
+        cur.execute(f"UPDATE genomes set cgmlst_loci=?,cgmlst_coverage=?,"  
+            f"cgmlst_alleles=? where sample=?",(data.loci,float(data.coverage),data.alleles,accession))
 
     conn.commit()
     conn.close()
 
 def save_orfs(db,intsv):
-    assembly_accession = os.path.basename(intsv).split('.')[0]
-    assembly_accession = assembly_accession.replace('-v-','.')
+    sample = os.path.basename(intsv).split('.')[0]
+    sample = sample.replace('-v-','.')
   
     commands = []
     ge_acc = set()
@@ -47,20 +51,20 @@ def save_orfs(db,intsv):
                 orf_cnt = prt[-1].split('_')[-1]   
                 orf_accession = f"{genome_accession}_{orf_cnt}"       
                 sidx,eidx,_,strand = prt[3:7]
-                commands.append("INSERT INTO orfs (assembly_accession,accession,start_index,end_index,strand) "
-                                f"VALUES ('{assembly_accession}','{orf_accession}',{sidx},{eidx},'{strand}')")
+                commands.append("INSERT INTO orfs (sample,accession,start_index,end_index,strand) "
+                                f"VALUES ('{sample}','{orf_accession}',{sidx},{eidx},'{strand}')")
 
     # chech if it has been already stored
     conn = lit.connect(db)
     cur = conn.cursor()
     ge_acc = list(ge_acc)
-    row = cur.execute("SELECT count(id) from CONTIGS WHERE assembly_accession=? and accession=?",(assembly_accession,ge_acc[0])).fetchone()
+    row = cur.execute("SELECT count(id) from CONTIGS WHERE sample=? and accession=?",(sample,ge_acc[0])).fetchone()
 
     if row[0]>0:
         return
 
     for acc in ge_acc:
-        commands.append(f"INSERT INTO contigs (assembly_accession,accession) VALUES ('{assembly_accession}','{acc}')")
+        commands.append(f"INSERT INTO contigs (sample,accession) VALUES ('{sample}','{acc}')")
 
 
     for cmd in commands:
@@ -71,16 +75,16 @@ def save_orfs(db,intsv):
 
 def save_annotation(db,intsv,idty_th=50,cov_th=50):
     filename = os.path.basename(intsv).split('.')[0]
-    assembly_accession,ref_db = filename.split('__')
-    assembly_accession = assembly_accession.replace('-v-','.')
+    sample,ref_db = filename.split('__')
+    sample = sample.replace('-v-','.')
     
     conn = lit.connect(db)
     cur = conn.cursor()
     
-    row = cur.execute("SELECT count(id) from annotations WHERE assembly_accession=? and ref_db=?",(assembly_accession,ref_db)).fetchone()
+    row = cur.execute("SELECT count(id) from annotations WHERE sample=? and ref_db=?",(sample,ref_db)).fetchone()
     
     if row[0]>0:
-        print(f'The genome {assembly_accession} has been already added to database.')
+        print(f'The genome {sample} has been already added to database.')
         return
 
     df = pd.read_csv(intsv,header=None,sep='\t')
@@ -95,9 +99,9 @@ def save_annotation(db,intsv,idty_th=50,cov_th=50):
 
     for _,row in filt_df.iterrows():
        
-        cur.execute("INSERT INTO annotations (assembly_accession,orfs_accession,sseqid,pident,qcov,scov"
+        cur.execute("INSERT INTO annotations (sample,orfs_accession,sseqid,pident,qcov,scov"
                     ",gaps,mismatch,stitle,ref_db,bitscore,length) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
-                    (assembly_accession,row.qseqid,row.sseqid,row.pident,row.qcov,row.scov
+                    (sample,row.qseqid,row.sseqid,row.pident,row.qcov,row.scov
                     ,row.gaps,row.mismatch,row.stitle,ref_db,row.bitscore,row.length))
 
     conn.commit()
@@ -122,8 +126,9 @@ def main(argv):
         if opt in ["--in","-b"]:
             intsv = arg
     
-    
-    if type in ['cgmlst','mlst']:
+    if type == 'samples':
+        save_samples(db,intsv)
+    elif type in ['cgmlst','mlst']:
         save_seqtype(db,intsv,type)
     elif type=='orfs':
         save_orfs(db,intsv)
