@@ -9,10 +9,7 @@ process PROKKA {
     publishDir "${params.output_dir}/prokka", mode: 'copy'
 
     input:
-    tuple val(meta), path(fasta)
-    path proteins
-    path prodigal_tf
-
+    tuple val(meta), path(fasta),  path(prodigal_tf), path(proteins)
 
     output:
     tuple val(meta), path("${prefix}/*.gff"), emit: gff

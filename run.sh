@@ -2,6 +2,15 @@
 
 # Nextflow Pipeline Execution Script
 
+
+echo "  _____ ____      _    ____ _  __     ____   _  _____ _   _ "
+echo " |_   _|  _ \    / \  / ___| |/ /    |  _ \ / \|_   _| | | |"
+echo "   | | | |_) |  / _ \| |   | ' /_____| |_) / _ \ | | | |_| |"
+echo "   | | |  _ <  / ___ \ |___| . \_____|  __/ ___ \| | |  _  |"
+echo "   |_| |_| \_\/_/   \_\____|_|\_\    |_| /_/   \_\_| |_| |_|"
+echo "                                                            "
+
+
 # Halt on any error
 set -e
 
@@ -29,7 +38,8 @@ get_absolute_path() {
 usage() {
     echo -e "${YELLOW}Usage:${NC} $0 [options]"
     echo "Options:"
-    echo "  -i, --input         Input directory containing fastq.gz files (REQUIRED)"
+    echo "  -q, --reads_dir     Input fatstq directory containing fastq.gz files"
+    echo "  -g, --contigs_dir   Input contigs directory containing contigs.fa.gz files"
     echo "  -o, --output        Output directory for results (default: ./results)"
     echo "  -w, --work          Nextflow working directory (default: ./work)"
     echo "  -c, --config        Custom Nextflow configuration file (default: nextflow.config)"
@@ -40,7 +50,8 @@ usage() {
 }
 
 # Default values with absolute paths
-INPUT_DIR=""
+READS_DIR=""
+CONTIGS_DIR=""
 OUTPUT_DIR="$(get_absolute_path "./results")"
 WORK_DIR="$(get_absolute_path "./work")"
 CONFIG_FILE="$(get_absolute_path "${SCRIPT_DIR}/nextflow.config")"
@@ -49,7 +60,7 @@ PROFILE="standard"
 RESUME_FLAG=""
 
 # Parse command-line arguments
-ARGS=$(getopt -o i:o:w:c:p:rh --long input:,output:,work:,config:,profile:,resume,help -n "$0" -- "$@")
+ARGS=$(getopt -o q:g:o:w:c:p:rh --long reads_dir:,contigs_dir:,output:,work:,config:,profile:,resume,help -n "$0" -- "$@")
 
 # Check for invalid arguments
 if [ $? -ne 0 ]; then
@@ -61,8 +72,12 @@ eval set -- "$ARGS"
 # Extract options and their arguments
 while true; do
     case "$1" in
-        -i|--input)
-            INPUT_DIR="$(get_absolute_path "$2")"
+        -q|--reads_dir)
+            READS_DIR="$(get_absolute_path "$2")"
+            shift 2
+            ;;
+        -g|--contigs_dir)
+            CONTIGS_DIR="$(get_absolute_path "$2")"
             shift 2
             ;;
         -o|--output)
@@ -100,9 +115,10 @@ while true; do
 done
 
 # Validate required arguments
-if [ -z "$INPUT_DIR" ]; then
-    echo -e "${RED}Error: Input directory is required${NC}"
+if [ -z "$CONTIGS_DIR" ] && [ -z "$READS_DIR" ]; then
+    echo -e "${RED}Error: At least one of reads_dir or contigs_dir is required${NC}"
     usage
+    exit 1
 fi
 
 # Ensure directories exist
@@ -113,8 +129,13 @@ mkdir -p "$WORK_DIR"
 echo -e "${GREEN}Running Nextflow Pipeline Validation${NC}"
 
 # Check input directory
-if [ ! -d "$INPUT_DIR" ]; then
-    echo -e "${RED}Error: Input directory does not exist: $INPUT_DIR${NC}"
+if [ ! -z "$READS_DIR" ] && [ ! -d "$READS_DIR" ]; then
+    echo -e "${RED}Error: reads directory does not exist: $READS_DIR${NC}"
+    exit 1
+fi
+
+if [ ! -z "$CONTIGS_DIR" ] && [ ! -d "$CONTIGS_DIR" ]; then
+    echo -e "${RED}Error: contigs directory does not exist: $CONTIGS_DIR${NC}"
     exit 1
 fi
 
@@ -138,7 +159,8 @@ fi
 
 # Display Run Configuration
 echo -e "${YELLOW}Pipeline Configuration:${NC}"
-echo -e "Input Directory:       ${GREEN}$INPUT_DIR${NC}"
+echo -e "Read Directory:        ${GREEN}${READS_DIR:-${YELLOW}"Not Provided"}${NC}"
+echo -e "Contigs Directory:     ${GREEN}${CONTIGS_DIR:-${YELLOW}"Not Provided"}${NC}"
 echo -e "Output Directory:      ${GREEN}$OUTPUT_DIR${NC}"
 echo -e "Work Directory:        ${GREEN}$WORK_DIR${NC}"
 echo -e "Main NF Script:        ${GREEN}$MAIN_NF_FILE${NC}"
@@ -159,7 +181,8 @@ cd "$WORK_DIR"
 nextflow run "$MAIN_NF_FILE" \
     -profile "$PROFILE" \
     -c "$CONFIG_FILE" \
-    --input_dir "$INPUT_DIR" \
+    --reads_dir "$READS_DIR" \
+    --contigs_dir "$CONTIGS_DIR" \
     --output_dir "$OUTPUT_DIR" \
     -w "$WORK_DIR" \
     $RESUME_FLAG \
@@ -176,7 +199,8 @@ fi
 
 # Optional: Generate summary or perform post-run tasks
 echo -e "${YELLOW}Pipeline Run Summary:${NC}"
-echo "- Input Directory: $INPUT_DIR"
+echo "- Reads Directory: $READS_DIR"
+echo "- Contigs Directory: $CONTIGS_DIR"
 echo "- Output Directory: $OUTPUT_DIR"
 echo "- Execution Profile: $PROFILE"
 echo "- Completion Time: $(date)"
