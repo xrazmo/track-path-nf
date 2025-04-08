@@ -2,7 +2,6 @@ process AMRFINDERPLUS_RUN {
     tag "$meta.id"
     label 'process_medium'
 
-    conda "${moduleDir}/environment.yml"
     container "${ workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container ?
         'https://depot.galaxyproject.org/singularity/ncbi-amrfinderplus:3.11.18--h283d18e_0':
         'biocontainers/ncbi-amrfinderplus:3.11.18--h283d18e_0' }"
@@ -17,7 +16,7 @@ process AMRFINDERPLUS_RUN {
         }
     
     input:
-    tuple val(meta), path(fasta)
+    tuple val(meta), val(option), path(fasta)
     path db
 
     output:
@@ -35,7 +34,7 @@ process AMRFINDERPLUS_RUN {
     def is_compressed_fasta = fasta.getName().endsWith(".gz") ? true : false
     def is_compressed_db = db.getName().endsWith(".gz") ? true : false
     prefix = task.ext.prefix ?: "${meta.id}"
-    organism_param = meta.containsKey("organism") ? "--organism ${meta.organism} --mutation_all ${prefix}-mutations.tsv" : ""
+    option = (option && option != "") ? "${option} --mutation_all ${prefix}.mutations.tsv" : ""
     fasta_name = fasta.getName().replace(".gz", "")
     fasta_param = "-n"
     if (meta.containsKey("is_proteins")) {
@@ -57,7 +56,7 @@ process AMRFINDERPLUS_RUN {
 
     amrfinder \\
         $fasta_param $fasta_name \\
-        $organism_param \\
+        $option \\
         $args \\
         --database amrfinderdb \\
         --threads $task.cpus > ${prefix}.amrfinder.tsv

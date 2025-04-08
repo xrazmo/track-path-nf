@@ -46,7 +46,8 @@ def loadSpeciesConfig() {
             speciesReferences[species.name] = [
                 gbk: (species.gbk && species.gbk != "") ? "${params.database_references_dir}/${species.gbk}":null,
                 fasta: (species.fasta && species.fasta != "") ? "${params.database_references_dir}/${species.fasta}":null,
-                trn: (species.trn && species.trn != "") ? "${params.database_references_dir}/${species.trn}":null
+                trn: (species.trn && species.trn != "") ? "${params.database_references_dir}/${species.trn}":null,
+                amrfindopt: (species.amrfindopt && species.amrfindopt != "") ? species.amrfindopt : null
             ]
         }
         
@@ -55,7 +56,8 @@ def loadSpeciesConfig() {
             defaultReference = [
                 gbk: null,
                 fasta: null,
-                trn: null
+                trn: null,
+                amrfindopt: null
             ]
         }
     } else {
@@ -65,7 +67,8 @@ def loadSpeciesConfig() {
         defaultReference = [
             gbk: null,
             fasta: null,
-            trn: null
+            trn: null,
+            amrfindopt: null
         ]
         
         speciesReferences["unknown"] = defaultReference
@@ -206,6 +209,7 @@ workflow {
             def updated_meta = meta + [species: species]
             def ref_genome = speciesReferences.containsKey(species) ? 
                 speciesReferences[species] : defaultReference
+            
             return [updated_meta , contigs, species, ref_genome]
         }
 
@@ -213,15 +217,18 @@ workflow {
     prokka_ch = assembly_species_ch.map { meta, contigs, species, ref_genome ->
         def trn_file = (ref_genome.trn && ref_genome.trn != "") ? file(ref_genome.trn) : []
         [meta, contigs, trn_file, []]
-    }.view()
+    }
     
     PROKKA(prokka_ch)
     
+    amrfinder_ch = assembly_species_ch.map { meta, contigs, species, ref_genome -> [meta, ref_genome.amrfindopt, contigs]
+    }.view()
+
     // Run AMRFinderPlus for all contigs
-    // AMRFINDERPLUS_RUN(contigs_ch, AMRFINDERPLUS_UPDATE.out.db)
+    AMRFINDERPLUS_RUN(amrfinder_ch, AMRFINDERPLUS_UPDATE.out.db)
 
     // Run Diamond against all reference databases (e.g., VFDB)
-    // DIAMOND_RUN(PROKKA.out.ffn.combine(db_path.map{it->it[1]}))
+    //DIAMOND_RUN(PROKKA.out.ffn.combine(db_path.map{it->it[1]}))
 
     // diamondDatabases.each { db_name, db_path ->
     //     DIAMOND_RUN(PROKKA.out.ffn.combine, db_name, db_path)
