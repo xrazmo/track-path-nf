@@ -17,13 +17,13 @@ include {DIAMOND_BLASTX} from "$baseDir/modules/diamond/main"
 
 include {RGI_UPDATE} from "$baseDir/modules/rgi/main"
 include {RGI_MAIN} from "$baseDir/modules/rgi/main"
-include {RESFINDER_RUN} from "$baseDir/modules/resfinder/main"
+include {KLEBORATE} from "$baseDir/modules/kleborate/main"
 include {PLASMIDFINDER} from "$baseDir/modules/plasmidfinder/main"
 
 
 // Parameters with default values that can be overridden
 params.reads_dir = ""              // Directory containing fastq files
-params.contigs_dir = ""            // Directory containing pre-assembled contigs
+params.contigs_dir = ""            // Directory containing contigs
 params.output_dir = ""
 params.assets = "$baseDir/assets"
 params.reference_dir = "$baseDir/assets/references"
@@ -154,9 +154,8 @@ workflow {
     AMRFINDERPLUS_UPDATE()
 
     // Process fastq reads if provided
-    fq_ch
-        .count()
-        .map { count ->
+    fq_ch.count().set { fq_count }
+    fq_count.map { count ->
             if (count > 0) {
                 log.info "Found ${count} fastq files, proceeding with assembly"
                 // Clone the original channel for use in processes
@@ -203,7 +202,8 @@ workflow {
                         species = fields[1].trim()
                         // Normalize species name to match potential keys
                         if (species.contains("ecoli")) species = "Escherichia_coli"
-                        else if (species.contains("klebsiella")) species = "Klebsiella"
+                        else if (species.contains("klebsiella")) species = "Klebsiella_pneumoniae_complex"
+                        else if (species.contains("koxytoca")) species = "Klebsiella_oxytoca_complex"
                         else if (species.contains("ecloacae")) species = "Enterobacter_cloacae"
                         else if (species.contains("paeruginosa")) species = "Pseudomonas_aeruginosa"
                     }
@@ -267,17 +267,21 @@ workflow {
     }
 
     // Conditional Kleborate run for Klebsiella species
-    // klebsiella_contigs = assembly_species_ch
-    //     .filter { meta, contigs, species, ref_genome -> 
-    //         species.contains("Klebsiella")
-    //     }
-    //     .map { meta, contigs, species, ref_genome ->
-    //         [meta, contigs]
-    //     }
-    
-    // if (!klebsiella_contigs.isEmpty()) {
-    //     KLEBORATE(klebsiella_contigs)
-    // }
+    kleborate_contigs = assembly_species_ch
+        .filter { meta, contigs, species, ref_genome -> 
+            species.contains("Klebsiella_pneumoniae")  || species.contains("Klebsiella_oxytoca")
+        }
+        .map { meta, contigs, species, ref_genome ->
+            if (species.contains("Klebsiella_pneumoniae")) {
+            [meta, contigs, 'kpsc']
+            } else if (species.contains("Klebsiella_oxytoca")) {
+                [meta, contigs, 'kosc']
+            } 
+        }
+
+        if (kleborate_contigs) {
+            KLEBORATE(kleborate_contigs)
+        }
 
     // Run QUAST on all contigs
     // QUAST(assembly_species_ch.map { meta, contigs, species, ref_genome ->
