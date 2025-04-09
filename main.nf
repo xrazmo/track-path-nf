@@ -78,7 +78,7 @@ def loadSpeciesConfig() {
 
 // Function to load database references for Diamond
 def loadDatabaseConfig() {
-    def databases = [:]
+    def databases = []
     def configFile = file(params.db_config)
     if (configFile.exists()) {
         def slurper = new groovy.json.JsonSlurper()
@@ -86,7 +86,7 @@ def loadDatabaseConfig() {
         
         // Load database configurations
         config.databases.each { db ->
-            databases[db.name] = "${params.database_references_dir}/${db.path}"
+            databases << "${params.database_references_dir}/${db.path}"
         }
     } else {
         log.warn "Database configuration file not found: ${params.db_config}"
@@ -100,7 +100,7 @@ def references = loadSpeciesConfig()
 def speciesReferences = references.speciesReferences
 def defaultReference = references.defaultReference
 
-def diamondDatabases = loadDatabaseConfig()
+def refDiamondFa = loadDatabaseConfig()
 
 workflow {
     // Create channels for different input types
@@ -137,39 +137,38 @@ workflow {
     AMRFINDERPLUS_UPDATE()
 
     // Process fastq reads if provided
-    fq_ch.count().set { fq_count }
-    fq_count.first().set { fq_empty_check }
-
-    // Use a function to execute your logic based on the count
-    fq_empty_check.map { count ->
-        if (count > 0) {
-            log.info "Found ${count} fastq files, proceeding with assembly"
-            // Clone the original channel for use in processes
-            def fq_clone = fq_ch.buffer(size: count)
-            
-            FASTQC(fq_clone)
-            TRIMMOMATIC(fq_clone)
-            SPADES(TRIMMOMATIC.out.trimmed_reads.map{it -> [it[0],it[1],[],[]]},[])
-            
-            // Return the assembled contigs channel
-            return SPADES.out.contigs
-        } else {
-            log.warn "No fastq files in input channel"
-            return []
+    fq_ch
+        .count()
+        .map { count ->
+            if (count > 0) {
+                log.info "Found ${count} fastq files, proceeding with assembly"
+                // Clone the original channel for use in processes
+                def fq_clone = fq_ch.buffer(size: count)
+                
+                FASTQC(fq_clone)
+                TRIMMOMATIC(fq_clone)
+                SPADES(TRIMMOMATIC.out.trimmed_reads.map{it -> [it[0],it[1],[],[]]},[])
+                
+                // Return the assembled contigs channel
+                return SPADES.out.contigs
+            } else {
+                log.warn "No fastq files in input channel"
+                return []
+            }
         }
-    }.set { contigs_assembled_ch }
+        .set { contigs_assembled_ch }
 
     // Combine direct contigs and assembled contigs
     contigs_ch = contigs_direct_ch
                                 .concat(contigs_assembled_ch).filter{it != []}
                                 
     // Exit if no input is provided
-    contigs_ch.count().set { contigs_ch_count }
-    contigs_ch_count.first().set { contigs_empty_check }
-    contigs_empty_check.map{count ->
-        if (count==0) {
-            error "No input data provided. Please specify at least one of --reads_dir or --contigs_dir"
-        }
+    contigs_ch
+        .count()
+        .map{count ->
+            if (count==0) {
+                error "No input data provided. Please specify at least one of --reads_dir or --contigs_dir"
+            }
     }
 
     // Run MLST to identify species for all contigs
@@ -222,17 +221,14 @@ workflow {
     PROKKA(prokka_ch)
     
     amrfinder_ch = assembly_species_ch.map { meta, contigs, species, ref_genome -> [meta, ref_genome.amrfindopt, contigs]
-    }.view()
-
+    }
     // Run AMRFinderPlus for all contigs
     AMRFINDERPLUS_RUN(amrfinder_ch, AMRFINDERPLUS_UPDATE.out.db)
 
     // Run Diamond against all reference databases (e.g., VFDB)
-    //DIAMOND_RUN(PROKKA.out.ffn.combine(db_path.map{it->it[1]}))
+    diamond_db_channel = channel.fromList(refDiamondFa.collect { path -> file(path) })
+    DIAMOND_BLASTX(PROKKA.out.ffn.combine(diamond_db_channel))
 
-    // diamondDatabases.each { db_name, db_path ->
-    //     DIAMOND_RUN(PROKKA.out.ffn.combine, db_name, db_path)
-    // }
 
     // Conditional Kleborate run for Klebsiella species
     // klebsiella_contigs = assembly_species_ch
