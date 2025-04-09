@@ -46,9 +46,9 @@ def loadSpeciesConfig() {
         // Load the species configurations
         config.species.each { species ->
             speciesReferences[species.name] = [
-                gbk: (species.gbk && species.gbk != "") ? "${params.database_references_dir}/${species.gbk}":null,
-                fasta: (species.fasta && species.fasta != "") ? "${params.database_references_dir}/${species.fasta}":null,
-                trn: (species.trn && species.trn != "") ? "${params.database_references_dir}/${species.trn}":null,
+                gbk: (species.gbk && species.gbk != "") ? "${params.reference_dir}/${species.gbk}":null,
+                fasta: (species.fasta && species.fasta != "") ? "${params.reference_dir}/${species.fasta}":null,
+                trn: (species.trn && species.trn != "") ? "${params.reference_dir}/${species.trn}":null,
                 amrfindopt: (species.amrfindopt && species.amrfindopt != "") ? species.amrfindopt : null
             ]
         }
@@ -284,9 +284,12 @@ workflow {
         }
 
     // Run QUAST on all contigs
-    // QUAST(assembly_species_ch.map { meta, contigs, species, ref_genome ->
-    //     [meta, contigs, file(ref_genome.fasta)]
-    // })
+    quast_ch = assembly_species_ch.map { meta, contigs, species, ref_genome ->
+        def fasta_file = (ref_genome.fasta && ref_genome.fasta != "") ? file(ref_genome.fasta) : []
+        [meta, contigs, fasta_file]
+     }.view()
+
+    QUAST(quast_ch)
 
     //Run Busco on all contigs
     

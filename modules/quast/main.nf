@@ -6,7 +6,15 @@ process QUAST {
         'https://depot.galaxyproject.org/singularity/quast:5.2.0--py39pl5321heaaa4ec_4' :
         'biocontainers/quast:5.2.0--py39pl5321heaaa4ec_4' }"
 
-    publishDir "${params.output_dir}/quast", mode: 'copy'
+    publishDir "${params.output_dir}/quast", mode: 'copy', 
+        saveAs: { filename ->
+            if(!filename.endsWith(".tsv")){
+                return filename
+            }
+            else{
+                return null
+            }
+        }
 
     input:
     tuple val(meta) , path(contigs), path(fasta)
