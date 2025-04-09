@@ -6,6 +6,15 @@ process RGI_MAIN {
         'https://depot.galaxyproject.org/singularity/rgi:6.0.3--pyha8f3691_1':
         'biocontainers/rgi:6.0.3--pyha8f3691_1' }"
 
+    publishDir "${params.output_dir}/rgi/${meta.id}", mode: 'copy',
+        saveAs: { filename ->
+            if (filename.endsWith('.txt') || filename.endsWith('.json')) {
+                return filename
+            } else {
+                null
+            }
+        }
+
     input:
     tuple val(meta), path(fasta)
     path(card)
@@ -55,7 +64,7 @@ process RGI_MAIN {
         main \\
         $args2 \\
         --num_threads $task.cpus \\
-        --output_file $prefix \\
+        --output_file ${prefix}.rgi \\
         --input_sequence $fasta
 
     mkdir temp/
@@ -84,5 +93,44 @@ process RGI_MAIN {
         rgi: \$(echo \$RGI_VERSION)
         rgi-database: \$(echo \$DB_VERSION)
     END_VERSIONS
+    """
+}
+
+process RGI_UPDATE{
+
+    tag "updating RGI v${version}"
+
+    container "${ workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container ?
+        'https://depot.galaxyproject.org/singularity/rgi:6.0.3--pyha8f3691_1':
+        'biocontainers/rgi:6.0.3--pyha8f3691_1' }"
+
+    def refdb_dir="${params.assetsDir}/databases"
+    input:
+        val(version)
+
+    output:
+        val("${params.dataCacheDir}/wildcard"), emit: wildcard
+        val("${refdb_dir}/CARD")              ,emit: card
+
+    """
+
+    mkdir -p ${refdb_dir}/CARD
+    cd ${refdb_dir}/CARD
+    wget https://card.mcmaster.ca/latest/data
+    tar -xvf data ./card.json
+    rm ./data
+    rgi card_annotation -i ./card.json > card_annotation.log 2>&1
+
+
+    mkdir -p ${params.dataCacheDir}/wildcard
+    cd ${params.dataCacheDir}
+    wget -O wildcard_data.tar.bz2 https://card.mcmaster.ca/latest/variants
+    tar -xjf wildcard_data.tar.bz2 -C wildcard
+    gunzip wildcard/*.gz
+
+    rgi wildcard_annotation -i wildcard --card_json ${refdb_dir}/CARD/card.json -v ${version} > wildcard_annotation.log 2>&1
+
+    rm ./wildcard_data.tar.bz2
+
     """
 }

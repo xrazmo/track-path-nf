@@ -15,6 +15,7 @@ include {AMRFINDERPLUS_RUN} from "$baseDir/modules/amrfinderplus/run/main"
 include {AMRFINDERPLUS_UPDATE} from "$baseDir/modules/amrfinderplus/update/main"
 include {DIAMOND_BLASTX} from "$baseDir/modules/diamond/main"
 
+include {RGI_UPDATE} from "$baseDir/modules/rgi/main"
 include {RGI_MAIN} from "$baseDir/modules/rgi/main"
 include {RESFINDER_RUN} from "$baseDir/modules/resfinder/main"
 include {PLASMIDFINDER} from "$baseDir/modules/plasmidfinder/main"
@@ -24,6 +25,7 @@ include {PLASMIDFINDER} from "$baseDir/modules/plasmidfinder/main"
 params.reads_dir = ""              // Directory containing fastq files
 params.contigs_dir = ""            // Directory containing pre-assembled contigs
 params.output_dir = ""
+params.assets = "$baseDir/assets"
 params.reference_dir = "$baseDir/assets/references"
 params.database_references_dir = "$baseDir/assets/databases"
 params.species_config = "${params.reference_dir}/species_references.config"
@@ -95,12 +97,27 @@ def loadDatabaseConfig() {
     return databases
 }
 
+def loadCardVersion(){
+   
+    def configFile = file(params.db_config)
+    if (configFile.exists()) {
+        def slurper = new groovy.json.JsonSlurper()
+        def config = slurper.parseText(configFile.text)
+        return config.card_version
+    } else {
+        log.warn "Database configuration file not found: ${params.db_config}"
+        log.warn "No wildCard option"
+    }
+    return "NA"
+}
+
 // Load configurations when pipeline starts
 def references = loadSpeciesConfig()
 def speciesReferences = references.speciesReferences
 def defaultReference = references.defaultReference
 
 def refDiamondFa = loadDatabaseConfig()
+def cardversion = loadCardVersion()
 
 workflow {
     // Create channels for different input types
@@ -229,6 +246,25 @@ workflow {
     diamond_db_channel = channel.fromList(refDiamondFa.collect { path -> file(path) })
     DIAMOND_BLASTX(PROKKA.out.ffn.combine(diamond_db_channel))
 
+    
+    // Run rgi and CARD annotations
+
+    def wildcardPath = file("${params.dataCacheDir}/wildcard")
+    def cardPath = file("${params.database_references_dir}/CARD")
+
+    // Check if the directory exists and is non-empty
+    if (!wildcardPath.exists() || wildcardPath.list().size() == 0) {
+        log.warn "Directory ${params.dataCacheDir}/wildcard does not exist or is empty. Updating the CARD database..."
+        
+        // Run update process and pass its outputs to RGI_MAIN
+        RGI_UPDATE(cardversion)
+        RGI_MAIN(PROKKA.out.faa, RGI_UPDATE.out.card, RGI_UPDATE.out.wildcard)
+    } else {
+        log.warn "Directory ${params.dataCacheDir}/wildcard already exists and contains files. Skipping CARD update."
+        
+        // Use existing paths directly with RGI_MAIN
+        RGI_MAIN(PROKKA.out.faa, cardPath, wildcardPath)
+    }
 
     // Conditional Kleborate run for Klebsiella species
     // klebsiella_contigs = assembly_species_ch
