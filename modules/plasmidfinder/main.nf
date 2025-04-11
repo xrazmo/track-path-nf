@@ -6,8 +6,18 @@ process PLASMIDFINDER {
         'https://depot.galaxyproject.org/singularity/plasmidfinder:2.1.6--py310hdfd78af_1':
         'biocontainers/plasmidfinder:2.1.6--py310hdfd78af_1' }"
 
+    publishDir "${params.output_dir}/plasmidfinder/${meta.id}", mode: 'copy',
+        saveAs: { filename ->
+            if (!filename.endsWith('.fsa')) {
+                return filename
+            } else {
+                null
+            }
+        }
+
     input:
     tuple val(meta), path(seqs)
+    path(db_path)
 
     output:
     tuple val(meta), path("*.json")                 , emit: json
@@ -24,10 +34,17 @@ process PLASMIDFINDER {
     def args = task.ext.args ?: ''
     def prefix = task.ext.prefix ?: "${meta.id}"
     def VERSION = '2.1.6'
+    def is_compressed_fasta = seqs.getName().endsWith(".gz") ? true : false
+    fasta_name = seqs.getName().replace(".gz", "")
     """
+    if [ "$is_compressed_fasta" == "true" ]; then
+        gzip -c -d $seqs > $fasta_name
+    fi
+
     plasmidfinder.py \\
         $args \\
-        -i $seqs \\
+        -i $fasta_name \\
+        -p $db_path \\
         -o ./ \\
         -x
 
@@ -43,4 +60,35 @@ process PLASMIDFINDER {
         plasmidfinder: $VERSION
     END_VERSIONS
     """
+}
+
+process PLASMIDFINDER_UPDATE{
+    
+    tag "Updating PlasmidFinder"
+
+    container "${ workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container ?
+        'https://depot.galaxyproject.org/singularity/plasmidfinder:2.1.6--py310hdfd78af_1':
+        'biocontainers/plasmidfinder:2.1.6--py310hdfd78af_1' }"
+
+    publishDir "${params.dataCacheDir}", mode: 'copy'
+
+    def refdb_dir="${params.assetsDir}/databases"
+
+    output:
+        path("plasmidfinder_db/"),emit: db_path
+
+    """ 
+   
+    curl -L -o plasmidfinder_db.zip https://bitbucket.org/genomicepidemiology/plasmidfinder_db/get/master.zip
+    unzip plasmidfinder_db.zip
+    mv genomicepidemiology-plasmidfinder_db* plasmidfinder_db
+    cd plasmidfinder_db
+
+    PLASMID_DB=\$(pwd)
+   
+    # Install PlasmidFinder database with executable kma_index program
+    python3 INSTALL.py kma_index
+   
+    """
+
 }

@@ -14,10 +14,10 @@ include {SNIPPY_RUN} from "$baseDir/modules/snippy/main"
 include {AMRFINDERPLUS_RUN} from "$baseDir/modules/amrfinderplus/run/main"
 include {AMRFINDERPLUS_UPDATE} from "$baseDir/modules/amrfinderplus/update/main"
 include {DIAMOND_BLASTX} from "$baseDir/modules/diamond/main"
-
 include {RGI_UPDATE} from "$baseDir/modules/rgi/main"
 include {RGI_MAIN} from "$baseDir/modules/rgi/main"
 include {KLEBORATE} from "$baseDir/modules/kleborate/main"
+include {PLASMIDFINDER_UPDATE} from "$baseDir/modules/plasmidfinder/main"
 include {PLASMIDFINDER} from "$baseDir/modules/plasmidfinder/main"
 
 
@@ -49,7 +49,8 @@ def loadSpeciesConfig() {
                 gbk: (species.gbk && species.gbk != "") ? "${params.reference_dir}/${species.gbk}":null,
                 fasta: (species.fasta && species.fasta != "") ? "${params.reference_dir}/${species.fasta}":null,
                 trn: (species.trn && species.trn != "") ? "${params.reference_dir}/${species.trn}":null,
-                amrfindopt: (species.amrfindopt && species.amrfindopt != "") ? species.amrfindopt : null
+                amrfindopt: (species.amrfindopt && species.amrfindopt != "") ? species.amrfindopt : null,
+                plasmidAct:species.plasmidAct
             ]
         }
         
@@ -59,7 +60,8 @@ def loadSpeciesConfig() {
                 gbk: null,
                 fasta: null,
                 trn: null,
-                amrfindopt: null
+                amrfindopt: null,
+                plasmidAct:false
             ]
         }
     } else {
@@ -70,7 +72,8 @@ def loadSpeciesConfig() {
             gbk: null,
             fasta: null,
             trn: null,
-            amrfindopt: null
+            amrfindopt: null,
+            plasmidAct:false
         ]
         
         speciesReferences["unknown"] = defaultReference
@@ -106,9 +109,9 @@ def loadCardVersion(){
         return config.card_version
     } else {
         log.warn "Database configuration file not found: ${params.db_config}"
-        log.warn "No wildCard option"
+        log.warn "No wildCard option for RGI process"
     }
-    return "NA"
+    return null
 }
 
 // Load configurations when pipeline starts
@@ -120,8 +123,8 @@ def refDiamondFa = loadDatabaseConfig()
 def cardversion = loadCardVersion()
 
 workflow {
+
     // Create channels for different input types
-    
     // 1. Input channel for fastq files (if directory provided)
     fq_ch = Channel.empty()
     if (params.reads_dir) {
@@ -200,7 +203,7 @@ workflow {
                     def fields = line.split('\t')
                     if (fields.size() > 2) {
                         species = fields[1].trim()
-                        // Normalize species name to match potential keys
+                        // species names are based on MLST output, output names should match the config file and assets
                         if (species.contains("ecoli")) species = "Escherichia_coli"
                         else if (species.contains("klebsiella")) species = "Klebsiella_pneumoniae_complex"
                         else if (species.contains("koxytoca")) species = "Klebsiella_oxytoca_complex"
@@ -222,10 +225,12 @@ workflow {
     assembly_species_ch = contigs_ch
         .join(species_ch)
         .map { meta, contigs, species ->
-            def updated_meta = meta + [species: species]
+            
             def ref_genome = speciesReferences.containsKey(species) ? 
                 speciesReferences[species] : defaultReference
             
+            def updated_meta = meta + [species: species,plasmidAct:ref_genome.plasmidAct]
+
             return [updated_meta , contigs, species, ref_genome]
         }
 
@@ -287,13 +292,26 @@ workflow {
     quast_ch = assembly_species_ch.map { meta, contigs, species, ref_genome ->
         def fasta_file = (ref_genome.fasta && ref_genome.fasta != "") ? file(ref_genome.fasta) : []
         [meta, contigs, fasta_file]
-     }.view()
+     }
 
     QUAST(quast_ch)
 
-    //Run Busco on all contigs
-    
-    //Busco
+    plfin_ch = assembly_species_ch
+                .filter( it-> it[0].plasmidAct) // Only those contigs eligible for plasmidfinder, e.g., Entrobacterales
+                .map { meta, contigs, species, ref_genome ->[meta, contigs]}.view()
+
+    if(plfin_ch){
+            def plasmidFinderPath = file("${params.dataCacheDir}/plasmidfinder_db")
+            if (!plasmidFinderPath.exists() || plasmidFinderPath.list().size() == 0) {
+                log.warn "Directory ${plasmidFinderPath} does not exist or is empty. Updating the PlasmidFinder database..."
+                PLASMIDFINDER_UPDATE()
+                PLASMIDFINDER(plfin_ch,PLASMIDFINDER_UPDATE.out.db_path)
+            }else{
+                PLASMIDFINDER(plfin_ch,plasmidFinderPath)
+            }
+
+    }
+
 
     // Only run SNIPPY for samples that came from fastq reads
     // if (!fq_ch.isEmpty()) {
@@ -311,4 +329,5 @@ workflow {
         
     //     SNIPPY_RUN(snippy_input)
     // }
+
 }
