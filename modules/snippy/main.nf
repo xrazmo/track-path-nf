@@ -10,8 +10,7 @@ process SNIPPY_RUN {
     publishDir "${params.output_dir}/snippy", mode: 'copy'
 
     input:
-    tuple val(meta), path(reads)
-    path reference
+    tuple val(meta), path(reads), path(reference)
 
     output:
     tuple val(meta), path("${prefix}/${prefix}.tab")              , emit: tab

@@ -125,6 +125,9 @@ fi
 mkdir -p "$OUTPUT_DIR"
 mkdir -p "$WORK_DIR"
 
+# Initialize run_assembly
+RUN_ASSEMBLY="false"
+
 # Pre-run checks
 echo -e "${GREEN}Running Nextflow Pipeline Validation${NC}"
 
@@ -132,6 +135,10 @@ echo -e "${GREEN}Running Nextflow Pipeline Validation${NC}"
 if [ ! -z "$READS_DIR" ] && [ ! -d "$READS_DIR" ]; then
     echo -e "${RED}Error: reads directory does not exist: $READS_DIR${NC}"
     exit 1
+fi
+
+if [ -n "$READS_DIR" ] && [ -d "$READS_DIR" ]; then
+    RUN_ASSEMBLY="true"
 fi
 
 if [ ! -z "$CONTIGS_DIR" ] && [ ! -d "$CONTIGS_DIR" ]; then
@@ -166,6 +173,7 @@ echo -e "Work Directory:        ${GREEN}$WORK_DIR${NC}"
 echo -e "Main NF Script:        ${GREEN}$MAIN_NF_FILE${NC}"
 echo -e "Configuration File:    ${GREEN}$CONFIG_FILE${NC}"
 echo -e "Execution Profile:     ${GREEN}$PROFILE${NC}"
+echo -e "Run Assembly:           $(([ "$RUN_ASSEMBLY" = "true" ] && echo "${GREEN}true${NC}") || echo "${YELLOW}false (Reads are provided)${NC}")"
 echo -e "Resume Flag:           ${GREEN}${RESUME_FLAG:-None}${NC}"
 
 # Confirmation Prompt
@@ -185,6 +193,7 @@ nextflow run "$MAIN_NF_FILE" \
     --contigs_dir "$CONTIGS_DIR" \
     --output_dir "$OUTPUT_DIR" \
     -w "$WORK_DIR" \
+    --run_assembly "$RUN_ASSEMBLY" \
     $RESUME_FLAG \
     -process.log
 

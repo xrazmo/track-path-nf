@@ -20,7 +20,6 @@ include {KLEBORATE} from "$baseDir/modules/kleborate/main"
 include {PLASMIDFINDER_UPDATE} from "$baseDir/modules/plasmidfinder/main"
 include {PLASMIDFINDER} from "$baseDir/modules/plasmidfinder/main"
 
-
 // Parameters with default values that can be overridden
 params.reads_dir = ""              // Directory containing fastq files
 params.contigs_dir = ""            // Directory containing contigs
@@ -30,7 +29,7 @@ params.reference_dir = "$baseDir/assets/references"
 params.database_references_dir = "$baseDir/assets/databases"
 params.species_config = "${params.reference_dir}/species_references.config"
 params.db_config = "${params.database_references_dir}/database_references.config"
-
+params.run_assembly = false
 
 // Function to load species references from config file
 def loadSpeciesConfig() {
@@ -114,6 +113,7 @@ def loadCardVersion(){
     return null
 }
 
+
 // Load configurations when pipeline starts
 def references = loadSpeciesConfig()
 def speciesReferences = references.speciesReferences
@@ -121,6 +121,8 @@ def defaultReference = references.defaultReference
 
 def refDiamondFa = loadDatabaseConfig()
 def cardversion = loadCardVersion()
+
+def haveFqReads = false
 
 workflow {
 
@@ -153,30 +155,31 @@ workflow {
             )
     }
    
-    // Update AMRFinderPlus database (shared resource)
+    // Update AMRFinderPlus database
     AMRFINDERPLUS_UPDATE()
 
-    // Process fastq reads if provided
-    fq_ch.count().set { fq_count }
-    fq_count.map { count ->
+
+    // Initialize empty channel for contigs
+    fq_ch
+        .count()
+        .map { count ->
             if (count > 0) {
                 log.info "Found ${count} fastq files, proceeding with assembly"
-                // Clone the original channel for use in processes
-                def fq_clone = fq_ch.buffer(size: count)
-                
-                FASTQC(fq_clone)
-                TRIMMOMATIC(fq_clone)
-                SPADES(TRIMMOMATIC.out.trimmed_reads.map{it -> [it[0],it[1],[],[]]},[])
-                
-                // Return the assembled contigs channel
-                return SPADES.out.contigs
             } else {
                 log.warn "No fastq files in input channel"
-                return []
             }
-        }
-        .set { contigs_assembled_ch }
-
+        } 
+    
+    contigs_assembled_ch = Channel.empty() 
+    if(params.run_assembly){
+         // Run processes
+        FASTQC(fq_ch)
+        TRIMMOMATIC(fq_ch)
+        SPADES(TRIMMOMATIC.out.trimmed_reads.map { it -> [it[0], it[1], [], []] },[])
+        // Set output to contigs
+        SPADES.out.contigs.set { contigs_assembled_ch }
+    }
+    
     // Combine direct contigs and assembled contigs
     contigs_ch = contigs_direct_ch
                                 .concat(contigs_assembled_ch).filter{it != []}
@@ -214,10 +217,10 @@ workflow {
             }
             return [meta, species]
         }
-
+    
     // Log the identified species for each sample
     species_ch.map { meta, species ->
-        log.info "Sample ${meta.id} identified as ${species}"
+        log.info "-Sample ${meta.id} identified as ${species}"
         return [meta, species]
     }
 
@@ -242,8 +245,9 @@ workflow {
     
     PROKKA(prokka_ch)
     
-    amrfinder_ch = assembly_species_ch.map { meta, contigs, species, ref_genome -> [meta, ref_genome.amrfindopt, contigs]
-    }
+    amrfinder_ch = assembly_species_ch.map { meta, contigs, species, ref_genome -> 
+                                            [meta, ref_genome.amrfindopt, contigs]
+                                            }
     // Run AMRFinderPlus for all contigs
     AMRFINDERPLUS_RUN(amrfinder_ch, AMRFINDERPLUS_UPDATE.out.db)
 
@@ -296,9 +300,11 @@ workflow {
 
     QUAST(quast_ch)
 
+    // Run plasmidfinder 
+    // Only those contigs eligible for plasmidfinder, e.g., Entrobacterales
     plfin_ch = assembly_species_ch
-                .filter( it-> it[0].plasmidAct) // Only those contigs eligible for plasmidfinder, e.g., Entrobacterales
-                .map { meta, contigs, species, ref_genome ->[meta, contigs]}.view()
+                .filter( it-> it[0].plasmidAct) 
+                .map { meta, contigs, species, ref_genome ->[meta, contigs]}
 
     if(plfin_ch){
             def plasmidFinderPath = file("${params.dataCacheDir}/plasmidfinder_db")
@@ -312,22 +318,30 @@ workflow {
 
     }
 
+    // Only run SNIPPY for samples that came from fastq reads and has designated full reference genome
+  
+    if (params.run_assembly) {
 
-    // Only run SNIPPY for samples that came from fastq reads
-    // if (!fq_ch.isEmpty()) {
-    //     // Get species information for reads samples
-    //     reads_species_ch = species_ch.filter { meta, species ->
-    //         meta.source == "reads"
-    //     }
+        fq_species_ch = fq_ch
+            .join(species_ch)
+            .map { meta, reads, species ->                       
+                def ref_genome = speciesReferences.containsKey(species) ? 
+                    speciesReferences[species] : defaultReference
+                return [meta , reads, species, ref_genome]
+            }
+        // only those with reference, i.e. gbk file
+        snippy_ch = fq_species_ch.map { meta, reads, species, ref_genome ->
+            def gbk_file = (ref_genome.gbk && ref_genome.gbk != "") ? file(ref_genome.gbk) : null
+            [meta, reads, gbk_file ]
+            }.filter{it-> it[2]}
 
-    //     // Prepare input for SNIPPY
-    //     snippy_input = fq_ch.join(reads_species_ch).map { meta, reads, species ->
-    //         def ref_genome = speciesReferences.containsKey(species) ? 
-    //             speciesReferences[species] : defaultReference
-    //         return [meta, reads, file(ref_genome.gbk)]
-    //     }
-        
-    //     SNIPPY_RUN(snippy_input)
-    // }
+        snippy_ch.view()
+
+        if(snippy_ch){
+            SNIPPY_RUN(snippy_ch)
+        }
+    }
+            
+     
 
 }
