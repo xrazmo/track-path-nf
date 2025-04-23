@@ -24,12 +24,13 @@ include {PLASMIDFINDER} from "$baseDir/modules/plasmidfinder/main"
 params.reads_dir = ""              // Directory containing fastq files
 params.contigs_dir = ""            // Directory containing contigs
 params.output_dir = ""
-params.assets = "$baseDir/assets"
-params.reference_dir = "$baseDir/assets/references"
-params.database_references_dir = "$baseDir/assets/databases"
+params.assets = "${params.cacheDir}/assets"
+params.reference_dir = "${params.assets}/references"
+params.database_references_dir = "${params.assets}/databases"
 params.species_config = "${params.reference_dir}/species_references.config"
 params.db_config = "${params.database_references_dir}/database_references.config"
 params.run_assembly = false
+params.ticket = params.ticket ?: "ticket"
 
 // Function to load species references from config file
 def loadSpeciesConfig() {

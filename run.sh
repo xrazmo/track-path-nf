@@ -164,8 +164,16 @@ if ! command -v nextflow &> /dev/null; then
     exit 1
 fi
 
+# Get current date and time in format YYYYMMDD_HHMMSS
+DATE_TIME=$(date +"%y%m%d_%H%M")
+# Generate random characters (4 alphanumeric characters)
+RANDOM_CHARS=$(cat /dev/urandom | tr -dc 'A-Z0-9' | fold -w 4 | head -n 1)
+# Create ticket combining date_time and random characters
+TICKET="${DATE_TIME}_${RANDOM_CHARS}"
+
 # Display Run Configuration
 echo -e "${YELLOW}Pipeline Configuration:${NC}"
+echo -e "Generated ticket:      ${RED}$TICKET${NC}"
 echo -e "Read Directory:        ${GREEN}${READS_DIR:-${YELLOW}"Not Provided"}${NC}"
 echo -e "Contigs Directory:     ${GREEN}${CONTIGS_DIR:-${YELLOW}"Not Provided"}${NC}"
 echo -e "Output Directory:      ${GREEN}$OUTPUT_DIR${NC}"
@@ -187,6 +195,7 @@ fi
 echo -e "${GREEN}Starting Nextflow Pipeline...${NC}"
 cd "$WORK_DIR"
 nextflow run "$MAIN_NF_FILE" \
+    --ticket $TICKET \
     -profile "$PROFILE" \
     -c "$CONFIG_FILE" \
     --reads_dir "$READS_DIR" \
