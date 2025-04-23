@@ -72,8 +72,6 @@ process PLASMIDFINDER_UPDATE{
 
     publishDir "${params.dataCacheDir}", mode: 'copy'
 
-    def refdb_dir="${params.assetsDir}/databases"
-
     output:
         path("plasmidfinder_db/"),emit: db_path
 

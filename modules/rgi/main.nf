@@ -96,41 +96,43 @@ process RGI_MAIN {
     """
 }
 
-process RGI_UPDATE{
+process RGI_UPDATE {
 
     tag "updating RGI v${version}"
 
     container "${ workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container ?
         'https://depot.galaxyproject.org/singularity/rgi:6.0.3--pyha8f3691_1':
         'biocontainers/rgi:6.0.3--pyha8f3691_1' }"
+    
+    publishDir path: "${params.database_references_dir}", mode: 'copy', saveAs: { filename -> filename.equals("CARD") ? "CARD" : null }, overwrite: true
+    publishDir path: "${params.dataCacheDir}", mode: 'copy', saveAs: { filename -> filename.equals("wildcard") ? "wildcard" : null }
 
-    def refdb_dir="${params.assetsDir}/databases"
+
     input:
         val(version)
 
     output:
-        val("${params.dataCacheDir}/wildcard"), emit: wildcard
-        val("${refdb_dir}/CARD")              ,emit: card
+        path("wildcard"), emit: wildcard
+        path("CARD"), emit: card
 
+    script:
     """
-
-    mkdir -p ${refdb_dir}/CARD
-    cd ${refdb_dir}/CARD
+    # Work in the local process directory
+    mkdir -p CARD
+    cd CARD
     wget https://card.mcmaster.ca/latest/data
     tar -xvf data ./card.json
     rm ./data
     rgi card_annotation -i ./card.json > card_annotation.log 2>&1
+    cd ..
 
-
-    mkdir -p ${params.dataCacheDir}/wildcard
-    cd ${params.dataCacheDir}
+    mkdir -p wildcard
     wget -O wildcard_data.tar.bz2 https://card.mcmaster.ca/latest/variants
     tar -xjf wildcard_data.tar.bz2 -C wildcard
     gunzip wildcard/*.gz
 
-    rgi wildcard_annotation -i wildcard --card_json ${refdb_dir}/CARD/card.json -v ${version} > wildcard_annotation.log 2>&1
+    rgi wildcard_annotation -i wildcard --card_json CARD/card.json -v ${version} > wildcard_annotation.log 2>&1
 
     rm ./wildcard_data.tar.bz2
-
     """
 }
