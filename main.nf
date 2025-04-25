@@ -1,6 +1,5 @@
 #!/usr/bin/nextflow
 
-// Enable DSL2 syntax
 nextflow.enable.dsl=2
 
 include {FASTQC} from "$baseDir/modules/fastqc/main"
@@ -19,6 +18,11 @@ include {RGI_MAIN} from "$baseDir/modules/rgi/main"
 include {KLEBORATE} from "$baseDir/modules/kleborate/main"
 include {PLASMIDFINDER_UPDATE} from "$baseDir/modules/plasmidfinder/main"
 include {PLASMIDFINDER} from "$baseDir/modules/plasmidfinder/main"
+
+include {KRAKEN2_UPDATE} from "$baseDir/modules/kraken2/main"
+include {KRAKEN2_KRAKEN2} from "$baseDir/modules/kraken2/main"
+include {BRACKEN_BRACKEN} from "$baseDir/modules/bracken/main"
+
 
 // Parameters with default values that can be overridden
 params.reads_dir = ""              // Directory containing fastq files
@@ -114,6 +118,20 @@ def loadCardVersion(){
     return null
 }
 
+def loadKraken2url(){
+   
+    def configFile = file(params.db_config)
+    if (configFile.exists()) {
+        def slurper = new groovy.json.JsonSlurper()
+        def config = slurper.parseText(configFile.text)
+        return config.kraken2_url
+    } else {
+        log.warn "Database configuration file not found: ${params.db_config}"
+        log.warn "No wildCard option for RGI process"
+    }
+    return null
+}
+
 
 // Load configurations when pipeline starts
 def references = loadSpeciesConfig()
@@ -122,6 +140,7 @@ def defaultReference = references.defaultReference
 
 def refDiamondFa = loadDatabaseConfig()
 def cardversion = loadCardVersion()
+def kraken2url = loadKraken2url()
 
 def haveFqReads = false
 
@@ -179,6 +198,23 @@ workflow {
         SPADES(TRIMMOMATIC.out.trimmed_reads.map { it -> [it[0], it[1], [], []] },[])
         // Set output to contigs
         SPADES.out.contigs.set { contigs_assembled_ch }
+
+        // Run KRAKEN2 and BRACKEN 
+        def k2db_path = file("${params.dataCacheDir}/k2_standard")
+        if (!k2db_path.exists() || k2db_path.list().size() == 0) {
+            log.warn "Directory ${params.dataCacheDir}/k2_standard does not exist or is empty. Updating the Kraken2 database..."
+            
+            KRAKEN2_UPDATE(kraken2url)
+            KRAKEN2_KRAKEN2(fq_ch,KRAKEN2_UPDATE.out.k2_db,false,false)
+            BRACKEN_BRACKEN(KRAKEN2_KRAKEN2.out.report,KRAKEN2_UPDATE.out.k2_db)
+        
+        } else {
+            log.info "Directory ${params.dataCacheDir}/k2_standard already exists and contains files. Skipping Kraken2 update."
+            
+            KRAKEN2_KRAKEN2(fq_ch,k2db_path,false,false)
+            BRACKEN_BRACKEN(KRAKEN2_KRAKEN2.out.report,k2db_path)
+        }
+
     }
     
     // Combine direct contigs and assembled contigs
@@ -336,7 +372,6 @@ workflow {
             [meta, reads, gbk_file ]
             }.filter{it-> it[2]}
 
-        snippy_ch.view()
 
         if(snippy_ch){
             SNIPPY_RUN(snippy_ch)
