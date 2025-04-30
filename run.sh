@@ -40,6 +40,7 @@ usage() {
     echo "Options:"
     echo "  -q, --reads_dir     Input fatstq directory containing fastq.gz files"
     echo "  -g, --contigs_dir   Input contigs directory containing contigs.fa.gz files"
+    echo "  -s, --species_csv   A CSV file with two columns 'sample_id' and 'species' (name in reference config file). It override MLST results and use the reference files in AMRFinder, Snippy,etc."
     echo "  -o, --output        Output directory for results (default: ./results)"
     echo "  -w, --work          Nextflow working directory (default: ./work)"
     echo "  -c, --config        Custom Nextflow configuration file (default: nextflow.config)"
@@ -52,6 +53,7 @@ usage() {
 # Default values with absolute paths
 READS_DIR=""
 CONTIGS_DIR=""
+SPECIS_CSV=""
 OUTPUT_DIR="$(get_absolute_path "./results")"
 WORK_DIR="$(get_absolute_path "./work")"
 CONFIG_FILE="$(get_absolute_path "${SCRIPT_DIR}/nextflow.config")"
@@ -60,7 +62,7 @@ PROFILE="standard"
 RESUME_FLAG=""
 
 # Parse command-line arguments
-ARGS=$(getopt -o q:g:o:w:c:p:rh --long reads_dir:,contigs_dir:,output:,work:,config:,profile:,resume,help -n "$0" -- "$@")
+ARGS=$(getopt -o q:g:s:o:w:c:p:rh --long reads_dir:,contigs_dir:,species_csv:,output:,work:,config:,profile:,resume,help -n "$0" -- "$@")
 
 # Check for invalid arguments
 if [ $? -ne 0 ]; then
@@ -78,6 +80,10 @@ while true; do
             ;;
         -g|--contigs_dir)
             CONTIGS_DIR="$(get_absolute_path "$2")"
+            shift 2
+            ;;
+        -s|--species_csv)
+            SPECIS_CSV="$(get_absolute_path "$2")"
             shift 2
             ;;
         -o|--output)
@@ -176,12 +182,13 @@ echo -e "${YELLOW}Pipeline Configuration:${NC}"
 echo -e "Generated ticket:      ${RED}$TICKET${NC}"
 echo -e "Read Directory:        ${GREEN}${READS_DIR:-${YELLOW}"Not Provided"}${NC}"
 echo -e "Contigs Directory:     ${GREEN}${CONTIGS_DIR:-${YELLOW}"Not Provided"}${NC}"
+echo -e "Sample2Species csv:    ${GREEN}${SPECIS_CSV:-${YELLOW}"Not Provided"}${NC}"
 echo -e "Output Directory:      ${GREEN}$OUTPUT_DIR${NC}"
 echo -e "Work Directory:        ${GREEN}$WORK_DIR${NC}"
 echo -e "Main NF Script:        ${GREEN}$MAIN_NF_FILE${NC}"
 echo -e "Configuration File:    ${GREEN}$CONFIG_FILE${NC}"
 echo -e "Execution Profile:     ${GREEN}$PROFILE${NC}"
-echo -e "Run Assembly:           $(([ "$RUN_ASSEMBLY" = "true" ] && echo "${GREEN}true${NC}") || echo "${YELLOW}false (Reads are provided)${NC}")"
+echo -e "Run Assembly:          $(([ "$RUN_ASSEMBLY" = "true" ] && echo "${GREEN}true${NC}") || echo "${YELLOW}false (Reads are provided)${NC}")"
 echo -e "Resume Flag:           ${GREEN}${RESUME_FLAG:-None}${NC}"
 
 # Confirmation Prompt
@@ -200,6 +207,7 @@ nextflow run "$MAIN_NF_FILE" \
     -c "$CONFIG_FILE" \
     --reads_dir "$READS_DIR" \
     --contigs_dir "$CONTIGS_DIR" \
+    --species_csv "$SPECIS_CSV" \
     --output_dir "$OUTPUT_DIR" \
     -w "$WORK_DIR" \
     --run_assembly "$RUN_ASSEMBLY" \

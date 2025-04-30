@@ -35,6 +35,7 @@ params.species_config = "${params.reference_dir}/species_references.config"
 params.db_config = "${params.database_references_dir}/database_references.config"
 params.run_assembly = false
 params.ticket = params.ticket ?: "ticket"
+params.species_csv = null
 
 // Function to load species references from config file
 def loadSpeciesConfig() {
@@ -233,8 +234,23 @@ workflow {
     // Run MLST to identify species for all contigs
     MLST(contigs_ch)
     
+    // Load predefined sample,species
+    species_csv_ch = Channel.empty()
+    if (params.species_csv) {
+        species_csv_ch = Channel
+            .fromPath(params.species_csv)
+            .splitCsv(header: true, sep: ',')
+            .map { row ->
+                // Ensure sample_id and Species columns exist
+                if (!row.sample_id || !row.species) {
+                    error "CSV file must contain 'sample_id' and 'Species' columns"
+                }
+                [row.sample_id, row.species.trim()]
+            }
+    }
+    
     // Process MLST output to extract species information
-    species_ch = MLST.out.tsv
+    mlst_species_ch = MLST.out.tsv
         .map { meta, mlst_file ->
             def species = "unknown"
             mlst_file.withReader { reader ->
@@ -249,14 +265,29 @@ workflow {
                         else if (species.contains("koxytoca")) species = "Klebsiella_oxytoca_complex"
                         else if (species.contains("ecloacae")) species = "Enterobacter_cloacae"
                         else if (species.contains("paeruginosa")) species = "Pseudomonas_aeruginosa"
+                        else if (species.contains("cfreundii")) species = "Citrobacter_freundii"
                     }
                 }
             }
-            return [meta, species]
+            return [meta.id, species, meta]
         }
     
+    // Combine CSV and MLST channels, prioritizing CSV species if available
+    species_ch = species_csv_ch
+        .mix(mlst_species_ch)// Combine both channels (CSV channel may be empty)
+        .groupTuple()        // Group by sample_id
+        .map { it ->
+            if (it.size() == 3){ // skip those sample_id which are in csv but not in the output of MLST
+            // If CSV species exists (first in list if present), use it; otherwise, use MLST or "unknown"
+            [ it[2][0], it[1][0] ]
+            }
+        }
+
     // Log the identified species for each sample
     species_ch.map { meta, species ->
+        if (species == "unknown") {
+            log.warn "Sample ${meta.id} has unknown species; check CSV or MLST output"
+        }
         log.info "-Sample ${meta.id} identified as ${species}"
         return [meta, species]
     }
@@ -315,13 +346,14 @@ workflow {
     // Conditional Kleborate run for Klebsiella species
     kleborate_contigs = assembly_species_ch
         .filter { meta, contigs, species, ref_genome -> 
-            species.contains("Klebsiella_pneumoniae")  || species.contains("Klebsiella_oxytoca")
+            species.contains("Klebsiella")
         }
         .map { meta, contigs, species, ref_genome ->
-            if (species.contains("Klebsiella_pneumoniae")) {
-            [meta, contigs, 'kpsc']
-            } else if (species.contains("Klebsiella_oxytoca")) {
+                if (species.contains("Klebsiella_oxytoca")) {
                 [meta, contigs, 'kosc']
+            } 
+            else if (species.contains("Klebsiella")) {
+            [meta, contigs, 'kpsc']
             } 
         }
 
