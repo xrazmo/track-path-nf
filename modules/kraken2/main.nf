@@ -19,7 +19,7 @@ process KRAKEN2_KRAKEN2 {
     tuple val(meta), path('*report.txt')                           , emit: report
     path "versions.yml"                                            , emit: versions
 
-    publishDir "${params.output_dir}/kraken2_braken", mode: 'copy',
+    publishDir "${params.output_dir}/kraken2_bracken", mode: 'copy',
         saveAs: { filename ->
             if (filename.endsWith('.report.txt')) {
                 return filename

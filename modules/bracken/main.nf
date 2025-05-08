@@ -15,7 +15,7 @@ process BRACKEN_BRACKEN {
     tuple val(meta), path(bracken_kraken_style_report), emit: txt
     path "versions.yml"          , emit: versions
 
-    publishDir "${params.output_dir}/kraken2_braken", mode: 'copy',
+    publishDir "${params.output_dir}/kraken2_bracken", mode: 'copy',
         saveAs: { filename ->
                 if (filename.endsWith('.bracken.tsv')) {
                     return filename
