@@ -35,7 +35,7 @@ params.species_config = "${params.reference_dir}/species_references.config"
 params.db_config = "${params.database_references_dir}/database_references.config"
 params.run_assembly = false
 params.ticket = params.ticket ?: "ticket"
-params.species_csv = null
+params.species_csv = ""
 
 // Function to load species references from config file
 def loadSpeciesConfig() {
@@ -236,7 +236,7 @@ workflow {
     
     // Load predefined sample,species
     species_csv_ch = Channel.empty()
-    if (params.species_csv) {
+    if (params.species_csv && params.species_csv != "" && params.species_csv != null) {
         species_csv_ch = Channel
             .fromPath(params.species_csv)
             .splitCsv(header: true, sep: ',')

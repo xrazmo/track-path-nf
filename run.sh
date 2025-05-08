@@ -201,18 +201,26 @@ fi
 # Run Nextflow Pipeline
 echo -e "${GREEN}Starting Nextflow Pipeline...${NC}"
 cd "$WORK_DIR"
-nextflow run "$MAIN_NF_FILE" \
-    --ticket $TICKET \
-    -profile "$PROFILE" \
-    -c "$CONFIG_FILE" \
-    --reads_dir "$READS_DIR" \
-    --contigs_dir "$CONTIGS_DIR" \
-    --species_csv "$SPECIS_CSV" \
-    --output_dir "$OUTPUT_DIR" \
-    -w "$WORK_DIR" \
-    --run_assembly "$RUN_ASSEMBLY" \
-    $RESUME_FLAG \
-    -process.log
+# Initialize the base nextflow command
+NEXTFLOW_CMD="nextflow run \"$MAIN_NF_FILE\""
+
+# Conditionally add parameters if variables are non-empty
+[ -n "$TICKET" ] && NEXTFLOW_CMD="$NEXTFLOW_CMD --ticket \"$TICKET\""
+[ -n "$PROFILE" ] && NEXTFLOW_CMD="$NEXTFLOW_CMD -profile \"$PROFILE\""
+[ -n "$CONFIG_FILE" ] && NEXTFLOW_CMD="$NEXTFLOW_CMD -c \"$CONFIG_FILE\""
+[ -n "$READS_DIR" ] && NEXTFLOW_CMD="$NEXTFLOW_CMD --reads_dir \"$READS_DIR\""
+[ -n "$CONTIGS_DIR" ] && NEXTFLOW_CMD="$NEXTFLOW_CMD --contigs_dir \"$CONTIGS_DIR\""
+[ -n "$SPECIS_CSV" ] && NEXTFLOW_CMD="$NEXTFLOW_CMD --species_csv \"$SPECIS_CSV\""
+[ -n "$OUTPUT_DIR" ] && NEXTFLOW_CMD="$NEXTFLOW_CMD --output_dir \"$OUTPUT_DIR\""
+[ -n "$WORK_DIR" ] && NEXTFLOW_CMD="$NEXTFLOW_CMD -w \"$WORK_DIR\""
+[ -n "$RUN_ASSEMBLY" ] && NEXTFLOW_CMD="$NEXTFLOW_CMD --run_assembly \"$RUN_ASSEMBLY\""
+[ -n "$RESUME_FLAG" ] && NEXTFLOW_CMD="$NEXTFLOW_CMD $RESUME_FLAG"
+
+# Always include -process.log (no variable to check)
+NEXTFLOW_CMD="$NEXTFLOW_CMD -process.log"
+
+# Execute the command
+eval "$NEXTFLOW_CMD"
 
 # Pipeline Completion Status
 PIPELINE_EXIT_CODE=$?
