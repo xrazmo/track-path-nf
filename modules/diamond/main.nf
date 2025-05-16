@@ -7,7 +7,7 @@ process DIAMOND_BLASTX {
         'biocontainers/diamond:2.1.8--h43eeafb_0' }"
 
     input:
-    tuple val(meta) , path(fasta), path(db_fa)
+    tuple val(meta) , path(fasta), path(db_fa), val(is_ref)
 
     
     
@@ -37,6 +37,9 @@ process DIAMOND_BLASTX {
     def is_compressed = fasta.getExtension() == "gz" ? true : false
     def fasta_name = is_compressed ? fasta.getBaseName() : fasta
     def db_name = db_fa.getBaseName()
+   
+    def out_tsv = is_ref ? "${meta.id}.${db_name}__ref.diamond.tsv" :  "${meta.id}.${db_name}.diamond.tsv"
+    
     def header= "qseqid sseqid pident slen qlen length mismatch gapopen qstart qend sstart send evalue bitscore stitle"
 
     """
@@ -53,11 +56,11 @@ process DIAMOND_BLASTX {
         --db ${db_name}.dmnd \\
         --query ${fasta_name} \\
         --outfmt 6 ${header} \\
-        --out ${meta.id}.${db_name}.diamond.tsv \\
+        --out ${out_tsv} \\
         --log \\
         ${args}
 
-    sed -i "1i \$(echo '${header}' | tr ' ' '\\t')" ${meta.id}.${db_name}.diamond.tsv
+    sed -i "1i \$(echo '${header}' | tr ' ' '\\t')" ${out_tsv}
 
     mv diamond.log ${prefix}.log
 

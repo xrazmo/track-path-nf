@@ -53,6 +53,7 @@ def loadSpeciesConfig() {
             speciesReferences[species.name] = [
                 gbk: (species.gbk && species.gbk != "") ? "${params.reference_dir}/${species.gbk}":null,
                 fasta: (species.fasta && species.fasta != "") ? "${params.reference_dir}/${species.fasta}":null,
+                faa: (species.faa && species.faa != "") ? "${params.reference_dir}/${species.faa}":null,
                 trn: (species.trn && species.trn != "") ? "${params.reference_dir}/${species.trn}":null,
                 amrfindopt: (species.amrfindopt && species.amrfindopt != "") ? species.amrfindopt : null,
                 plasmidAct:species.plasmidAct
@@ -64,6 +65,7 @@ def loadSpeciesConfig() {
             defaultReference = [
                 gbk: null,
                 fasta: null,
+                faa:null,
                 trn: null,
                 amrfindopt: null,
                 plasmidAct:false
@@ -76,6 +78,7 @@ def loadSpeciesConfig() {
         defaultReference = [
             gbk: null,
             fasta: null,
+            faa:null,
             trn: null,
             amrfindopt: null,
             plasmidAct:false
@@ -288,7 +291,7 @@ workflow {
         if (species == "unknown") {
             log.warn "Sample ${meta.id} has unknown species; check CSV or MLST output"
         }
-        log.info "-Sample ${meta.id} identified as ${species}"
+        //log.info "-Sample ${meta.id} identified as ${species}"
         return [meta, species]
     }
 
@@ -321,9 +324,25 @@ workflow {
 
     // Run Diamond against all reference databases (e.g., VFDB)
     diamond_db_channel = channel.fromList(refDiamondFa.collect { path -> file(path) })
-    DIAMOND_BLASTX(PROKKA.out.ffn.combine(diamond_db_channel))
+    annotate_ch = PROKKA.out.ffn.combine(diamond_db_channel).combine([false])
 
+    // Run Diamond against all reference genome
     
+    //TODO: add reference proteins, i.e., faa to config files
+    refbx_ch = assembly_species_ch.join(PROKKA.out.ffn)
+        .map { meta, contigs, species, ref_genome, orf ->
+            def faa_file = (ref_genome.faa && ref_genome.faa != "") ? file(ref_genome.faa) : []
+            [meta, orf, faa_file,true]
+        }
+        .filter { it[2] != [] }
+    
+    // concat all the cases that are supposed to go through BLASTx
+
+    all_bx_ch = annotate_ch.concat(refbx_ch)
+    
+    DIAMOND_BLASTX(all_bx_ch)
+
+
     // Run rgi and CARD annotations
 
     def wildcardPath = file("${params.dataCacheDir}/wildcard")
