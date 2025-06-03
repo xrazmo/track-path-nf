@@ -10,6 +10,7 @@ include {QUAST} from "$baseDir/modules/quast/main"
 include {BUSCO_BUSCO as BUSCO} from "$baseDir/modules/busco/main"
 include {PROKKA} from "$baseDir/modules/prokka/main"
 include {SNIPPY_RUN} from "$baseDir/modules/snippy/main"
+include {SNIPPY_CONTIGS_RUN} from "$baseDir/modules/snippy/main"
 include {AMRFINDERPLUS_RUN} from "$baseDir/modules/amrfinderplus/run/main"
 include {AMRFINDERPLUS_UPDATE} from "$baseDir/modules/amrfinderplus/update/main"
 include {DIAMOND_BLASTX} from "$baseDir/modules/diamond/main"
@@ -336,6 +337,15 @@ workflow {
         }
         .filter { it[2] != [] }
     
+    // Run Snippy using contigs not reads
+    snippy_contigs_ch = assembly_species_ch.map { meta, contigs, species, ref_genome ->
+                def fasta = (ref_genome.fasta && ref_genome.fasta != "") ? file(ref_genome.fasta) : []
+                def gbk = (ref_genome.gbk && ref_genome.gbk != "") ? file(ref_genome.gbk) : []
+                [meta, contigs, fasta, gbk]
+        }.filter { it[2] != [] } // in case the reference could not be found then skip
+    
+    SNIPPY_CONTIGS_RUN(snippy_contigs_ch)
+
     // concat all the cases that are supposed to go through BLASTx
 
     all_bx_ch = annotate_ch.concat(refbx_ch)
