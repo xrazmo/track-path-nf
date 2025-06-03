@@ -20,7 +20,7 @@ process GENE_DIFF {
     tuple val(meta), path("*.json"), emit: json
 
     """
-        python ${baseDir}/modules/genediff/genediff/scripts/gene_diff.py \\
+        python ${baseDir}/submodules/genediff/scripts/gene_diff.py \\
         --reference ${ref_fna} \\
         --query ${qry_ffa} \\
         --output .
