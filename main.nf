@@ -9,8 +9,11 @@ include {SPADES} from "$baseDir/modules/spades/main"
 include {QUAST} from "$baseDir/modules/quast/main"
 include {BUSCO_BUSCO as BUSCO} from "$baseDir/modules/busco/main"
 include {PROKKA} from "$baseDir/modules/prokka/main"
+
 include {SNIPPY_RUN} from "$baseDir/modules/snippy/main"
 include {SNIPPY_CONTIGS_RUN} from "$baseDir/modules/snippy/main"
+include {GENE_DIFF} from "$baseDir/modules/genediff/main"
+
 include {AMRFINDERPLUS_RUN} from "$baseDir/modules/amrfinderplus/run/main"
 include {AMRFINDERPLUS_UPDATE} from "$baseDir/modules/amrfinderplus/update/main"
 include {DIAMOND_BLASTX} from "$baseDir/modules/diamond/main"
@@ -55,6 +58,7 @@ def loadSpeciesConfig() {
                 gbk: (species.gbk && species.gbk != "") ? "${params.reference_dir}/${species.gbk}":null,
                 fasta: (species.fasta && species.fasta != "") ? "${params.reference_dir}/${species.fasta}":null,
                 faa: (species.faa && species.faa != "") ? "${params.reference_dir}/${species.faa}":null,
+                fna: (species.fna && species.fna != "") ? "${params.reference_dir}/${species.fna}":null,
                 trn: (species.trn && species.trn != "") ? "${params.reference_dir}/${species.trn}":null,
                 amrfindopt: (species.amrfindopt && species.amrfindopt != "") ? species.amrfindopt : null,
                 plasmidAct:species.plasmidAct
@@ -67,6 +71,7 @@ def loadSpeciesConfig() {
                 gbk: null,
                 fasta: null,
                 faa:null,
+                fna: null,
                 trn: null,
                 amrfindopt: null,
                 plasmidAct:false
@@ -80,6 +85,7 @@ def loadSpeciesConfig() {
             gbk: null,
             fasta: null,
             faa:null,
+            fna: null,
             trn: null,
             amrfindopt: null,
             plasmidAct:false
@@ -337,6 +343,17 @@ workflow {
         }
         .filter { it[2] != [] }
     
+    // Run gene diff for all genomes
+    genediff_ch = assembly_species_ch
+        .join(PROKKA.out.ffn)
+        .map { meta, contigs, species, ref_genome, orf ->
+            def fna_file = (ref_genome.fna && ref_genome.fna != "") ? file(ref_genome.fna) : []
+            [meta, fna_file, orf]
+        }
+        .filter { it[1] != [] } 
+     
+    GENE_DIFF(genediff_ch)
+    
     // Run Snippy using contigs not reads
     snippy_contigs_ch = assembly_species_ch.map { meta, contigs, species, ref_genome ->
                 def fasta = (ref_genome.fasta && ref_genome.fasta != "") ? file(ref_genome.fasta) : []
@@ -438,7 +455,5 @@ workflow {
             SNIPPY_RUN(snippy_ch)
         }
     }
-            
-     
-
 }
+ 
