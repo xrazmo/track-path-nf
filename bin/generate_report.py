@@ -1302,7 +1302,7 @@ def generate_report(input_dir, data_dir, img_dir):
         js_file.write(f"const data = {json_string};")
     print(f"Data as JSON string saved to '{js_string_file}'.")
 
-def main(input_dir, output_dir):
+def main(input_dir, output_dir, ui_dir=None):
     if not os.path.exists(input_dir):
         print(f"Error: Input directory '{input_dir}' does not exist.")
         return
@@ -1313,19 +1313,32 @@ def main(input_dir, output_dir):
 
     # Add your processing logic here
     print(f"Processing files from '{input_dir}' and saving results to '{output_dir}'.")
-    # Create subdirectories for images and data
+    # Create subdirectories for images and data.js (the viewer at
+    # assets/ui/index.html loads its data from a sibling "./js/data.js")
     img_dir = os.path.join(output_dir, "img")
-    data_dir = os.path.join(output_dir, "data")
+    data_dir = os.path.join(output_dir, "js")
     os.makedirs(img_dir, exist_ok=True)
     os.makedirs(data_dir, exist_ok=True)
 
     # Generate the report
     generate_report(input_dir, data_dir, img_dir)
 
+    # Copy the interactive viewer alongside the data/img it reads via
+    # relative paths, so output_dir is a self-contained, openable report.
+    if ui_dir:
+        index_src = os.path.join(ui_dir, "index.html")
+        if os.path.exists(index_src):
+            shutil.copy(index_src, os.path.join(output_dir, "index.html"))
+            print(f"Copied viewer '{index_src}' to '{output_dir}/index.html'.")
+        else:
+            print(f"Warning: UI template '{index_src}' not found. Skipping viewer copy.")
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Process input and output directories.")
     parser.add_argument("--input_dir", "-i", type=str, required=True, help="Path to the input directory.")
     parser.add_argument("--output_dir", "-o", type=str, required=True, help="Path to the output directory.")
+    parser.add_argument("--ui_dir", type=str, default=None,
+                         help="Path to the directory containing the interactive viewer (index.html) to copy into output_dir.")
     args = parser.parse_args()
 
-    main(args.input_dir, args.output_dir)
+    main(args.input_dir, args.output_dir, args.ui_dir)
