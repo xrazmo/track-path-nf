@@ -143,3 +143,7 @@ git submodule update --init --recursive
 
 - **Nextflow version**: `main.nf`'s `include` statements use dynamic (`$baseDir`) string interpolation, which newer Nextflow (25.x+) rejects under its stricter DSL2 parsing. `main.config` pins `manifest.nextflowVersion` to `23.10.0`–`24.x`; use `NXF_VER=24.10.5 nextflow run ...` (or an equivalent version manager) if your default Nextflow is newer.
 - **Conda-only modules under Singularity profiles**: `GENE_DIFF`, `SAVE_TO_DB`, and `GENERATE_REPORT` declare a `conda` environment but no `container`, so a Singularity-only profile must also set `conda.enabled = true` (see `local_test.config`) or they'll run against the bare host Python.
+
+## License
+
+[MIT](LICENSE)
