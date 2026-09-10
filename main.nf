@@ -32,7 +32,7 @@ include {BRACKEN_BRACKEN} from "$baseDir/modules/bracken/main"
 params.reads_dir = ""              // Directory containing fastq files
 params.contigs_dir = ""            // Directory containing contigs
 params.output_dir = ""
-params.assets = "${params.cacheDir}/assets"
+params.assets = params.assetsDir
 params.reference_dir = "${params.assets}/references"
 params.database_references_dir = "${params.assets}/databases"
 params.species_config = "${params.reference_dir}/species_references.config"
