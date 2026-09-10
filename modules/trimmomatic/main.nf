@@ -32,6 +32,7 @@ process TRIMMOMATIC {
     trimmomatic \\
         $trimmed \\
         -threads $task.cpus \\
+        -phred33 \\
         -trimlog ${prefix}_trim.log \\
         -summary ${prefix}.summary \\
         $reads \\
