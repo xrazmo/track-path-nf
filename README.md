@@ -46,6 +46,44 @@ Currently curated species: *Escherichia coli*, *Klebsiella pneumoniae* complex, 
 - One of: [Singularity](https://sylabs.io/singularity/) / [Apptainer](https://apptainer.org/), Docker, or Conda/[Mamba](https://mamba.readthedocs.io/) — most modules ship a `container` directive; a couple (`GENE_DIFF`, `SAVE_TO_DB`, `GENERATE_REPORT`) are conda-only and need `conda.enabled = true`
 - ~450MB for the curated reference assets (already in `assets/references/`), plus a few GB of scratch space for auto-downloaded databases (Kraken2, CARD, PlasmidFinder, BUSCO lineages) on first run
 
+## Installation
+
+1. **Install Java 17+** (required by Nextflow):
+   ```bash
+   sudo apt-get install openjdk-17-jre-headless   # or any Java 17+ distribution
+   ```
+
+2. **Install Nextflow, pinned to a compatible version.** This pipeline's `include` statements use a dynamic-path syntax that newer Nextflow (25.x+) rejects, so pin the runtime with `NXF_VER` rather than installing whatever is latest:
+   ```bash
+   curl -s https://get.nextflow.io | bash   # downloads/bootstraps the `nextflow` launcher
+   mv nextflow ~/.local/bin/                # or anywhere on your PATH
+   export NXF_VER=24.10.5                   # add to your shell profile to make this permanent
+   ```
+   Verify with `nextflow -version` — it should report `24.10.5` (or another `23.10.x`–`24.x` release).
+
+3. **Install a container/environment runtime.** Most modules ship a `container` directive (Singularity/Apptainer or Docker); a few conda-only modules (`GENE_DIFF`, `SAVE_TO_DB`, `GENERATE_REPORT`) need Conda/[Mamba](https://mamba.readthedocs.io/) as well:
+   - Singularity/Apptainer: see [sylabs.io](https://sylabs.io/singularity/) / [apptainer.org](https://apptainer.org/)
+   - Docker: see [docs.docker.com](https://docs.docker.com/get-docker/)
+   - Conda/Mamba: see [Miniforge](https://github.com/conda-forge/miniforge)
+
+4. **Clone the repository with its submodule** (the `genediff` gene-mutation-comparison tool lives in a separate repo):
+   ```bash
+   git clone --recurse-submodules https://github.com/xrazmo/track-path-nf.git
+   cd track-path-nf
+   ```
+   If you already cloned without `--recurse-submodules`:
+   ```bash
+   git submodule update --init --recursive
+   ```
+
+5. **Verify the setup** with a dry run (`-preview` validates the pipeline DAG and config without actually executing anything, so a nonexistent `--reads_dir` is fine here):
+   ```bash
+   nextflow run main.nf -c main.config -c local_test.config -profile local \
+     --reads_dir ./any_dir --output_dir ./results --run_assembly true \
+     -preview
+   ```
+   A clean exit with a printed process list (no `ERROR`) means Nextflow, the config, and the submodule are all wired up correctly. The reference assets under `assets/references/` ship with the repo; databases like Kraken2/CARD/PlasmidFinder/BUSCO lineages download automatically into `dataCacheDir` on first real run.
+
 ## Quick start
 
 ```bash
@@ -128,20 +166,6 @@ run_cgmlst.sh / run_save_db.sh   SLURM scripts for downstream cgMLST tree-buildi
 ```
 
 Modules present but not currently wired into `main.nf`: `roary` (pan-genome analysis), `snpeff` (variant annotation), `utility` (GenBank protein extraction).
-
-## Development
-
-Clone with submodules:
-
-```bash
-git clone --recurse-submodules https://github.com/xrazmo/track-path-nf.git
-```
-
-If you already cloned without `--recurse-submodules`:
-
-```bash
-git submodule update --init --recursive
-```
 
 ## Known issues
 
