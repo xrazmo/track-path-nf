@@ -27,6 +27,9 @@ include {KRAKEN2_UPDATE} from "$baseDir/modules/kraken2/main"
 include {KRAKEN2_KRAKEN2} from "$baseDir/modules/kraken2/main"
 include {BRACKEN_BRACKEN} from "$baseDir/modules/bracken/main"
 
+include {SAVE_TO_DB} from "$baseDir/modules/savedb/main"
+include {GENERATE_REPORT} from "$baseDir/modules/report/main"
+
 
 // Parameters with default values that can be overridden
 params.reads_dir = ""              // Directory containing fastq files
@@ -40,6 +43,10 @@ params.db_config = "${params.database_references_dir}/database_references.config
 params.run_assembly = false
 params.ticket = params.ticket ?: "ticket"
 params.species_csv = ""
+params.db_name = "${params.ticket}.trackpath_results.db"
+params.save_db_add_seq = false
+params.skip_save_db = false
+params.skip_report = false
 
 // Function to load species references from config file
 def loadSpeciesConfig() {
@@ -457,6 +464,33 @@ workflow {
         if(snippy_ch){
             SNIPPY_RUN(snippy_ch)
         }
+    }
+
+    // Aggregate every per-sample output into one barrier signal so the
+    // DB/report steps only start once the whole pipeline has finished
+    // publishing results for every sample.
+    done_ch = MLST.out.tsv.map{it->1}
+        .mix(PROKKA.out.ffn.map{it->1})
+        .mix(AMRFINDERPLUS_RUN.out.report.map{it->1})
+        .mix(RGI_MAIN.out.tsv.map{it->1})
+        .mix(QUAST.out.results.map{it->1})
+        .mix(GENE_DIFF.out.json.map{it->1})
+        .mix(SNIPPY_CONTIGS_RUN.out.vcf.map{it->1})
+        .mix(KLEBORATE.out.txt.map{it->1})
+        .mix(PLASMIDFINDER.out.json.map{it->1})
+
+    if (params.run_assembly) {
+        done_ch = done_ch.mix(SNIPPY_RUN.out.vcf.map{it->1})
+    }
+
+    done_ch = done_ch.collect()
+
+    if (!params.skip_save_db) {
+        SAVE_TO_DB(done_ch, params.output_dir, params.db_name)
+    }
+
+    if (!params.skip_report) {
+        GENERATE_REPORT(done_ch, params.output_dir)
     }
 }
  
