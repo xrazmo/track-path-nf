@@ -17,6 +17,7 @@ process GENERATE_REPORT {
     """
     python ${baseDir}/bin/generate_report.py \\
         --input_dir ${results_dir} \\
-        --output_dir report
+        --output_dir report \\
+        --ui_dir ${baseDir}/assets/ui
     """
 }
