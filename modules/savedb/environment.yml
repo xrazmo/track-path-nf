@@ -1,0 +1,11 @@
+name: savedb_env
+channels:
+  - conda-forge
+  - bioconda
+  - defaults
+dependencies:
+  - python>=3.8
+  - pandas
+  - numpy
+  - biopython
+  - tqdm
