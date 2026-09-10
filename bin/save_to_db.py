@@ -337,9 +337,9 @@ def fetch_plasmidfinder_data(input_dir,conn):
         df.drop(columns=['qlen_slen'], inplace=True)
         if not check_table:
             check_table = True
-            create_table_if_not_exists(conn, 'plasmidfinder', df)  # Create table if it doesn't exist
+            create_table_if_not_exists(conn, 'plasmid_typing', df)  # Create table if it doesn't exist
 
-        insert_data(conn, 'plasmidfinder', df)
+        insert_data(conn, 'plasmid_typing', df)
 
 def fetch_kleborate_data(input_dir):
     kleborate_dir = os.path.join(input_dir, "kleborate")
@@ -743,9 +743,9 @@ def fetch_orfs_seq(input_dir,output_dir, db_name):
         orf_df = pd.DataFrame(orf_data.values())
         if check_db:
             check_db = False
-            create_table_if_not_exists(conn, 'orfs', orf_df)
+            create_table_if_not_exists(conn, 'predicted_orfs', orf_df)
 
-        insert_data(conn, 'orfs', orf_df)
+        insert_data(conn, 'predicted_orfs', orf_df)
        
     
     conn.close()
@@ -850,8 +850,8 @@ def save_to_db(input_dir, output_dir, db_name, add_seq = False,cpus=1,skip=[]):
     print("\n=== Processing MLST Data ===")
     mlst_df = collect_mlst_data(input_dir)
     if not mlst_df.empty:
-        create_table_if_not_exists(conn, 'mlst', mlst_df)
-        inserted_mlst = insert_data(conn, 'mlst', mlst_df)
+        create_table_if_not_exists(conn, 'species_typing', mlst_df)
+        inserted_mlst = insert_data(conn, 'species_typing', mlst_df)
         print(f"MLST data processed: {len(mlst_df)} records found, {inserted_mlst} new records inserted.")
     else:
         print("No MLST data found to process.")
@@ -859,8 +859,8 @@ def save_to_db(input_dir, output_dir, db_name, add_seq = False,cpus=1,skip=[]):
     print("\n=== Processing Bracken Data ===")
     bracken_df = fetch_bracken_data(input_dir)
     if not bracken_df.empty:
-        create_table_if_not_exists(conn, 'bracken', bracken_df)
-        inserted_bracken = insert_data(conn, 'bracken', bracken_df)
+        create_table_if_not_exists(conn, 'taxonomic_classification', bracken_df)
+        inserted_bracken = insert_data(conn, 'taxonomic_classification', bracken_df)
         print(f"Bracken data processed: {len(bracken_df)} records found, {inserted_bracken} new records inserted.")
     else:
         print("No Bracken data found to process.")
@@ -871,69 +871,69 @@ def save_to_db(input_dir, output_dir, db_name, add_seq = False,cpus=1,skip=[]):
 
     print("\n=== Processing Kleborate Data ===")
     kleborate_df = fetch_kleborate_data(input_dir)
-    create_table_if_not_exists(conn, 'kleborate', kleborate_df)
-    insert_data(conn, 'kleborate', kleborate_df)
+    create_table_if_not_exists(conn, 'klebsiella_typing', kleborate_df)
+    insert_data(conn, 'klebsiella_typing', kleborate_df)
     print(f"Kleborate data processed: {len(kleborate_df)} records found.")
 
     print("\n=== Processing VFDB Data ===")
     vfdb_df = fetch_vfdb_data(input_dir)
-    create_table_if_not_exists(conn, 'vfdb', vfdb_df)
-    insert_data(conn, 'vfdb', vfdb_df)
+    create_table_if_not_exists(conn, 'virulence_factors', vfdb_df)
+    insert_data(conn, 'virulence_factors', vfdb_df)
     print(f"VFDB data processed: {len(vfdb_df)} records found.")
-    
+
     print("\n=== Processing Ref Blastx Data ===")
     refbx_df = fetch_refbx_data(input_dir)
-    create_table_if_not_exists(conn, 'refbx', refbx_df)
-    insert_data(conn, 'refbx', refbx_df)
+    create_table_if_not_exists(conn, 'reference_protein_blast', refbx_df)
+    insert_data(conn, 'reference_protein_blast', refbx_df)
     print(f"RefBx data processed: {len(refbx_df)} records found.")
-    
+
     print("\n=== Processing RGI Data ===")
     rgi_df = fetch_rgi_data(input_dir)
-    create_table_if_not_exists(conn, 'rgi', rgi_df)
-    insert_data(conn, 'rgi', rgi_df)
+    create_table_if_not_exists(conn, 'card_resistance_genes', rgi_df)
+    insert_data(conn, 'card_resistance_genes', rgi_df)
     print(f"RGI data processed: {len(rgi_df)} records found.")
 
     print("\n=== Processing AMRFinder Data ===")
     amrfinder_df = fetch_amrfinder_data(input_dir)
-    create_table_if_not_exists(conn, 'amrfinder', amrfinder_df)
-    insert_data(conn, 'amrfinder', amrfinder_df)
+    create_table_if_not_exists(conn, 'amr_genes', amrfinder_df)
+    insert_data(conn, 'amr_genes', amrfinder_df)
     print(f"AMRFinder data processed: {len(amrfinder_df)} records found.")
 
     print("\n=== Processing QUAST Data ===")
     quast_df = fetch_quast_data(input_dir)
-    create_table_if_not_exists(conn, 'quast', quast_df)
-    insert_data(conn, 'quast', quast_df)
+    create_table_if_not_exists(conn, 'assembly_quality', quast_df)
+    insert_data(conn, 'assembly_quality', quast_df)
     print(f"QUAST data processed: {len(quast_df)} records found.")
 
     print("\n=== Processing Prokka Data ===")
     prokka_df = fetch_prokka_data(input_dir)
-    create_table_if_not_exists(conn, 'prokka', prokka_df)
-    insert_data(conn, 'prokka', prokka_df)
+    create_table_if_not_exists(conn, 'genome_annotation', prokka_df)
+    insert_data(conn, 'genome_annotation', prokka_df)
     print(f"Prokka data processed: {len(prokka_df)} records found.")
-    
-    if('snippy' not in skip):
+
+    if('variant_calls' not in skip):
         print("\n=== Processing Snippy Data ===")
         snippy_df = fetch_snippy_data(input_dir)
-        create_table_if_not_exists(conn, 'snippy', snippy_df)
-        insert_data(conn, 'snippy', snippy_df,add_timestamp=False)
+        create_table_if_not_exists(conn, 'variant_calls', snippy_df)
+        insert_data(conn, 'variant_calls', snippy_df,add_timestamp=False)
         print(f"Snippy data processed: {len(snippy_df)} records found.")
     else:
         print("\n>>> Skipping Snippy Data Processing <<<")
-            
-    if('snippy_genome' not in skip):
+
+    if('variant_calls_summary' not in skip):
         print("\n=== Processing Snippy Genome Data ===")
         snippy_genome_df = fetch_snippy_genome(input_dir,cpus)
-        create_table_if_not_exists(conn, 'snippy_genome', snippy_genome_df)
-        insert_data(conn, 'snippy_genome', snippy_genome_df, add_timestamp=False)
+        create_table_if_not_exists(conn, 'variant_calls_summary', snippy_genome_df)
+        insert_data(conn, 'variant_calls_summary', snippy_genome_df, add_timestamp=False)
         print(f"Snippy genome data processed: {len(snippy_genome_df)} records found.")
     else:
         print("\n>>> Skipping Snippy Genome Data Processing <<<")
 
-    if('genediff' not in skip):
+    if('gene_mutation_diff' not in skip):
         print("\n=== Processing GeneDiff Data ===")
         genediff_df = fetch_gene_diff(input_dir)
-        create_table_if_not_exists(conn, 'genediff', genediff_df)
-        insert_data(conn, 'genediff', genediff_df, add_timestamp=False)
+        create_table_if_not_exists(conn, 'gene_mutation_diff', genediff_df)
+        insert_data(conn, 'gene_mutation_diff', genediff_df, add_timestamp=False)
         print(f"GeneDiff data processed: {len(genediff_df)} records found.")
     else:
         print("\n>>> Skipping GeneDiff Data Processing <<<")
@@ -998,8 +998,8 @@ def main():
     parser.add_argument('--id_mapper', type=str, default=None, help='CSV file mapping old_id to new_id (columns: old_id,new_id) without header')
     parser.add_argument('--meta_name', type=str, default=None, help='Name of the metadata table to create')
     parser.add_argument('--meta_data', type=str, default=None, help='CSV file containing metadata for the table')
-    parser.add_argument('--skip', type=str, default='snippy_genome',
-                        help="Comma-separated list of results to skip saving (snippy, snippy_genome, genediff). Example: snippy,snippy_genome")
+    parser.add_argument('--skip', type=str, default='variant_calls_summary',
+                        help="Comma-separated list of results to skip saving (variant_calls, variant_calls_summary, gene_mutation_diff). Example: variant_calls,variant_calls_summary")
     args = parser.parse_args()
 
     input_dir = args.input_dir
