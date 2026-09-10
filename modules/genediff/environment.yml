@@ -1,0 +1,13 @@
+name: genediff_env
+version: 1.0
+channels:
+  - conda-forge
+  - bioconda
+  - defaults
+dependencies:
+  - python>=3.8
+  - pandas
+  - biopython
+  - blast
+  - mafft
+  - pip

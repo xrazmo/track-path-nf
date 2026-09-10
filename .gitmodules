@@ -1,0 +1,3 @@
+[submodule "submodules/genediff"]
+	path = submodules/genediff
+	url = https://github.com/xrazmo/genediff

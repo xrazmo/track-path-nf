@@ -1,0 +1,24 @@
+# macOS
+._*
+.DS_Store
+
+# Nextflow
+.nextflow/
+.nextflow.log*
+work/
+results/
+timeline_report.html
+trace_report.txt
+nextflow_report.html
+
+# Python
+__pycache__/
+*.pyc
+
+# Test data (downloaded, not versioned)
+test_data/
+.data_cache/
+
+# Bulk downloaded databases (regenerate via bin/download_ref_db.py); keep configs
+assets/databases/CARD/
+assets/databases/VFDB/
