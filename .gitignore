@@ -22,3 +22,7 @@ test_data/
 # Bulk downloaded databases (regenerate via bin/download_ref_db.py); keep configs
 assets/databases/CARD/
 assets/databases/VFDB/
+
+# Local container/conda caches
+.singularity_cache/
+.conda_cache/
