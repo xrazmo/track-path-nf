@@ -48727,9 +48727,11 @@ FEATURES             Location/Qualifiers
                      ELHASGYYALFADTVPDDVQRLYTEIEAGDFAALAQTAHRLKGAFAMLNLIPGKQLCE
                      TLEHLIREKDAQGIEKYISDIDAYVKSLL"
      gene            2101177..2102280
+                     /gene="ompK36"
                      /locus_tag="KPNIH24_RS10550"
                      /old_locus_tag="KPNIH24_10140"
      CDS             2101177..2102280
+                     /gene="ompK36"
                      /locus_tag="KPNIH24_RS10550"
                      /old_locus_tag="KPNIH24_10140"
                      /inference="COORDINATES: similar to AA
