@@ -1,6 +1,10 @@
-# track-path-nf
+<img src="https://cdn.jsdelivr.net/gh/xrazmo/ui-util/track-path-ui/img/ico/trackpath.png" width="80" alt="TRACK-PATH logo">
+
+# TRACK-PATH-NF
 
 A Nextflow (DSL2) pipeline for analyzing bacterial whole-genome sequencing data from Illumina paired-end reads — assembly, species identification, AMR/virulence gene detection, plasmid and MLST typing, variant calling, and aggregation into a browsable SQLite database and an interactive HTML report.
+
+**For research use only.** This pipeline is not validated or intended for clinical diagnosis, treatment decisions, or any other clinical use.
 
 ## Pipeline overview
 
