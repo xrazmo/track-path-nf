@@ -171,6 +171,7 @@ Modules present but not currently wired into `main.nf`: `roary` (pan-genome anal
 
 - **Nextflow version**: `main.nf`'s `include` statements use dynamic (`$baseDir`) string interpolation, which newer Nextflow (25.x+) rejects under its stricter DSL2 parsing. `main.config` pins `manifest.nextflowVersion` to `23.10.0`–`24.x`; use `NXF_VER=24.10.5 nextflow run ...` (or an equivalent version manager) if your default Nextflow is newer.
 - **Conda-only modules under Singularity profiles**: `GENE_DIFF`, `SAVE_TO_DB`, and `GENERATE_REPORT` declare a `conda` environment but no `container`, so a Singularity-only profile must also set `conda.enabled = true` (see `local_test.config`) or they'll run against the bare host Python.
+- No automated test suite yet, and only *E. coli* and *K. pneumoniae* have been validated end-to-end so far — see [CHANGELOG.md](CHANGELOG.md) for the full list of planned follow-up work.
 
 ## License
 
