@@ -23,8 +23,9 @@ process GENE_DIFF {
         python ${baseDir}/submodules/genediff/scripts/gene_diff.py \\
         --reference ${ref_fna} \\
         --query ${qry_ffa} \\
-        --output .
-       
+        --output . \\
+        --threads ${task.cpus}
+
     """
 
 }
