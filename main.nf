@@ -425,7 +425,20 @@ workflow {
 
     QUAST(quast_ch)
 
-    // Run plasmidfinder 
+    // Run BUSCO to assess assembly completeness for all contigs.
+    // No per-species lineage is curated in species_references.config, so
+    // use BUSCO's automated prokaryote lineage selection.
+    busco_ch = assembly_species_ch.map { meta, contigs, species, ref_genome -> [meta, contigs] }
+    busco_lineages_path = file("${params.dataCacheDir}/busco_lineages")
+    // BUSCO's --download_path expects to create/populate this itself; it
+    // must already exist as a real (possibly empty) directory before
+    // Nextflow stages it, or BUSCO's own os.makedirs(exist_ok=True) call
+    // collides with Nextflow's staging and fails with FileExistsError.
+    busco_lineages_path.mkdirs()
+
+    BUSCO(busco_ch, 'genome', 'auto_prok', busco_lineages_path, [], false)
+
+    // Run plasmidfinder
     // Only those contigs eligible for plasmidfinder, e.g., Entrobacterales
     plfin_ch = assembly_species_ch
                 .filter( it-> it[0].plasmidAct) 
@@ -474,6 +487,7 @@ workflow {
         .mix(AMRFINDERPLUS_RUN.out.report.map{it->1})
         .mix(RGI_MAIN.out.tsv.map{it->1})
         .mix(QUAST.out.results.map{it->1})
+        .mix(BUSCO.out.batch_summary.map{it->1})
         .mix(GENE_DIFF.out.json.map{it->1})
         .mix(SNIPPY_CONTIGS_RUN.out.vcf.map{it->1})
         .mix(KLEBORATE.out.txt.map{it->1})

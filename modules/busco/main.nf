@@ -6,6 +6,8 @@ process BUSCO_BUSCO {
         ? 'https://community-cr-prod.seqera.io/docker/registry/v2/blobs/sha256/c6/c607f319867d96a38c8502f751458aa78bbd18fe4c7c4fa6b9d8350e6ba11ebe/data'
         : 'community.wave.seqera.io/library/busco_sepp:f2dbc18a2f7a5b64'}"
 
+    publishDir "${params.output_dir}/busco", mode: 'copy'
+
     input:
     tuple val(meta), path(fasta, stageAs:'tmp_input/*')
     val mode                              // Required:    One of genome, proteins, or transcriptome
